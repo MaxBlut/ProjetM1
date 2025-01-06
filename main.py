@@ -9,6 +9,7 @@ G = round((546.1-wlMin)/2)
 B = round((435.8-wlMin)/2)
 print("hello world")
 #gros bebe
+#la darone a enzo
 
 def main():
     img = sp.open_image("feuille_250624_ref.hdr")
