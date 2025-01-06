@@ -6,14 +6,6 @@ import numpy as np
 sp.settings.envi_support_nonlowercase_params = True
 
 wlMin = 402
-<<<<<<< Updated upstream
-R = round((700-wlMin)/2) 
-G = round((546.1-wlMin)/2)
-B = round((435.8-wlMin)/2)
-print("hello world")
-#gros bebe
-#la darone a enzo
-=======
 samples = 968 
 
 # The following values are the indice of the wavelenght of the RGB colors
@@ -60,7 +52,7 @@ def nmToRGB(wavelength):
     
 
 
-def calcule_true_rgb():
+def calcule_true_rgb(wl=402):
     img = sp.open_image("feuille_250624_ref.hdr")
     rgb = img.read_band(0)
     nblines = len(rgb)
@@ -68,22 +60,19 @@ def calcule_true_rgb():
     true_rgb_img = [[[0 for _ in range(3)] for _ in range(nbcolones)] for _ in range(nblines)]
     for i in range(0, nblines):
         for j in range(0, nbcolones):
-            for k in range(0, 968):
-                wl = wlMin + k*2
-                r, g, b = nmToRGB(wl)
-                true_rgb_img[i][j][0] += r*rgb[i][j]
-                true_rgb_img[i][j][1] += g*rgb[i][j]
-                true_rgb_img[i][j][2] += b*rgb[i][j]
+            r, g, b = nmToRGB(wl)
+            true_rgb_img[i][j][0] += r*rgb[i][j]*255
+            true_rgb_img[i][j][1] += g*rgb[i][j]*255
+            true_rgb_img[i][j][2] += b*rgb[i][j]*255
     return true_rgb_img
 
 
 
->>>>>>> Stashed changes
 
 def main():
     #img = sp.open_image("feuille_250624_ref.hdr")
 
-    img = calcule_true_rgb()
+    img = calcule_true_rgb(546)
 
     # Conversion de la liste en un tableau NumPy
     array = np.array(img, dtype=np.uint8)
