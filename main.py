@@ -11,14 +11,14 @@ B = round((435.8-wlMin)/2)
 
 def main():
     img = sp.open_image("feuille_250624_ref.hdr")
-    print(img)
+    # print(img)
     
-    data = img.load()
-    print(data)
+    # data = img.load()
+    # print(data)
     view = sp.imshow(img,(R,G,B))
     input("Press Enter to close the program...")
 
-    print(view)
+    # print(view)
     return 0
 
 
