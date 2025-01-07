@@ -54,7 +54,8 @@ def nmToRGB(wavelength):
 
 def calcule_true_rgb(wl=402):
     img = sp.open_image("feuille_250624_ref.hdr")
-    rgb = img.read_band(0)
+    k = round((wl-wlMin)/2)           # The indice of the wavelenght of the color
+    rgb = img.read_band(k)
     nblines = len(rgb)
     nbcolones = len(rgb[0])
     true_rgb_img = [[[0 for _ in range(3)] for _ in range(nbcolones)] for _ in range(nblines)]
@@ -72,7 +73,7 @@ def calcule_true_rgb(wl=402):
 def main():
     #img = sp.open_image("feuille_250624_ref.hdr")
 
-    img = calcule_true_rgb(510)
+    img = calcule_true_rgb(700)
 
     # Conversion de la liste en un tableau NumPy
     array = np.array(img, dtype=np.uint8)
@@ -87,6 +88,7 @@ def main():
     image.show()
     input("Press Enter to close the program...")
 
+  
 
     """
     #view = sp.imshow(img,(R,G,B))
