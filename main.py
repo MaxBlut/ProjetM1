@@ -17,8 +17,6 @@ def main():
     data = img.load()
     print(data)
 
-    
-   
     view = sp.imshow(img,(R,G,B))
     input("Press Enter to close the program...")
 
