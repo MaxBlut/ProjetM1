@@ -17,7 +17,7 @@ def nmToRGB(wavelength):
     # This function takes a wavelength value as an input and returns the corresponding RGB values
     # The RGB values are calculated using a piecewise function
     # The function is based on the work of Dan Bruton
-    # https://codepen.io/pen?editors=0110
+    # https://academo.org/demos/wavelength-to-colour-relationship/
 
     red, green, blue = 0.0, 0.0, 0.0
     if((wavelength >= 380) and (wavelength<440)):
@@ -72,7 +72,7 @@ def calcule_true_rgb(wl=402):
 def main():
     #img = sp.open_image("feuille_250624_ref.hdr")
 
-    img = calcule_true_rgb(546)
+    img = calcule_true_rgb(510)
 
     # Conversion de la liste en un tableau NumPy
     array = np.array(img, dtype=np.uint8)
