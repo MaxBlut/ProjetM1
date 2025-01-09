@@ -2,16 +2,12 @@ import spectral as sp
 from PIL import Image
 import numpy as np
 
-#
+# Set the envi_support_nonlowercase_params to True to avoid an error message 
 sp.settings.envi_support_nonlowercase_params = True
 
 wlMin = 402
-samples = 968 
+wlMax = 998
 
-# The following values are the indice of the wavelenght of the RGB colors
-R = round((700-wlMin)/2)
-G = round((546.1-wlMin)/2)
-B = round((435.8-wlMin)/2)
 
 def nmToRGB(wavelength):
     # This function takes a wavelength value as an input and returns the corresponding RGB values
@@ -53,19 +49,24 @@ def nmToRGB(wavelength):
 
 
 def calcule_true_rgb(wl=402):
-    img = sp.open_image("feuille_250624_ref.hdr")
-    k = round((wl-wlMin)/2)           # The indice of the wavelenght of the color
-    rgb = img.read_band(k)
-    nblines = len(rgb)
-    nbcolones = len(rgb[0])
-    true_rgb_img = [[[0 for _ in range(3)] for _ in range(nbcolones)] for _ in range(nblines)]
-    for i in range(0, nblines):
-        for j in range(0, nbcolones):
-            r, g, b = nmToRGB(wl)
-            true_rgb_img[i][j][0] += r*rgb[i][j]*255
-            true_rgb_img[i][j][1] += g*rgb[i][j]*255
-            true_rgb_img[i][j][2] += b*rgb[i][j]*255
-    return true_rgb_img
+    if wl > wlMin and wl < wlMax:
+        k = round((wl-wlMin)/2)           # The indice of the wavelenght of the color
+        rgb = sp.open_image("feuille_250624_ref.hdr").read_band(k)
+
+        nblines = len(rgb)
+        nbcolones = len(rgb[0])
+        true_rgb_img = [[[0 for _ in range(3)] for _ in range(nbcolones)] for _ in range(nblines)]
+        for i in range(0, nblines):
+            for j in range(0, nbcolones):
+                r, g, b = nmToRGB(wl)
+                true_rgb_img[i][j][0] += r*rgb[i][j]*255
+                true_rgb_img[i][j][1] += g*rgb[i][j]*255
+                true_rgb_img[i][j][2] += b*rgb[i][j]*255
+        print("True RGB image calculated")
+        return true_rgb_img
+    else:
+        print("The wavelength is out of the range")
+        return 1
 
 
 
@@ -73,7 +74,7 @@ def calcule_true_rgb(wl=402):
 def main():
     #img = sp.open_image("feuille_250624_ref.hdr")
 
-    img = calcule_true_rgb(700)
+    img = calcule_true_rgb(470)
 
     # Conversion de la liste en un tableau NumPy
     array = np.array(img, dtype=np.uint8)
