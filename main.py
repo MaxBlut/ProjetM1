@@ -165,7 +165,6 @@ def spectre_moyen_cluster(fully_mapped_cluster="feuille_250624_ref_fully_mapped_
 
 
 
-
 def main():
     global img_filename
     img_filename = "feuille_250624_ref.hdr"
@@ -181,38 +180,3 @@ print(main())
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def test_hypercube():
-    import wx
-    if not wx.App.IsMainLoopRunning():
-        app = wx.App(False)
-    #img = sp.open_image()
-    sp.view_cube("feuille_250624_ref.hdr")
-    input("Press Enter to close the program...")
-    return 0
-
-
-#test()
