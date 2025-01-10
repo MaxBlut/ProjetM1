@@ -1,5 +1,7 @@
 import spectral as sp
 import numpy as np
+import matplotlib.pyplot as plt
+
 
 sp.settings.envi_support_nonlowercase_params = True
 np.random.seed(42)
@@ -20,6 +22,13 @@ def first_kmean(img_filename = "feuille_250624_ref.hdr"):
     # the first kmean is used to cluster the image into 2 clusters (background and leaf)
     data = sp.open_image(img_filename).load()
     m, _ = sp.kmeans(data, 2, 20)
+    sp.imshow(classes=m)
+    coords = plt.ginput(1)  # Attendre 1 clic
+    x, y = int(coords[0][0]), int(coords[0][1]) # Coordonnées du clic
+    plt.close()
+    if m[y, x] == 0:  # Si la classe de la feuille est zero, on inverse les classes
+        m = 1 - m
+
     np.save(change_filename(img_filename, "_background_map.npy"), m)
     return 0 
 
@@ -30,7 +39,10 @@ def extract_one_cluster(img_filename = "feuille_250624_ref.hdr", cluster_map_fil
     img = sp.open_image(img_filename)
     data = img.load()
     m = np.load(cluster_map_filename)
-    selected_cluster_mask  = (m == 1)
+
+    
+
+    selected_cluster_mask  = (m == 1)  # Masque des pixels de la même classe que le clic
     subset_data = data[selected_cluster_mask,:]
     new_header = {
         'description': 'Subset of selected pixels',
@@ -81,10 +93,10 @@ def color_cluster(second_cluster_map = "feuille_250624_ref_selected_cluster_recl
 
 def main():
     # first_kmean()
-    # extract_leaf_cluster()
-    # second_kmean(10,18)
+    # extract_one_cluster()
+    # second_kmean(15,30)
     color_cluster()
-    return 0
+    
 
 
 print(main())
