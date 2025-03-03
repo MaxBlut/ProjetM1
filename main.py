@@ -126,6 +126,7 @@ def color_cluster(second_cluster_map = "feuille_250624_ref_selected_cluster_recl
 
 
 def spectre_moyen_cluster(fully_mapped_cluster="feuille_250624_ref_fully_mapped_cluster.npy"):
+    #return un plot du spectre moyen d'un cluster choisis par l'utilisateur
     input_var = ""
     fully_mapped_cluster = np.load(fully_mapped_cluster)
     img = sp.open_image(img_filename)
@@ -170,9 +171,10 @@ def main():
     img_filename = "feuille_250624_ref.hdr"
     # first_kmean()
     # extract_one_cluster()
-    # second_kmean(15,25)
-    # color_cluster()
+    second_kmean(5,50)
+    color_cluster()
     spectre_moyen_cluster()
+    return 0
     
 
 
