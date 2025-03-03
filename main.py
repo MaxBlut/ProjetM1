@@ -110,13 +110,13 @@ def color_cluster(second_cluster_map = "feuille_250624_ref_selected_cluster_recl
             if fisrt_clusters_map[i,j] == 1:                #if the pixel is part of the leaf
                 classes[i,j] = second_cluster_map[0][k]+1   #for each pixel of the leaf we color it with the color of the cluster it belongs to 
                 k+=1                                        #we add 1 to the color because indices of the second cluster map also start from 0 but they are not the background
+    np.save(change_filename(img_filename, "_fully_mapped_cluster.npy"), classes)
     view = sp.imshow(data = sp.open_image(img_filename) , classes=classes)                       #we display the colored image
-    # while(input("Press Enter to close the program...")):
     view.class_alpha=0.2
     view.set_display_mode("classes")
     view.refresh()
-    input("Press Enter to close the program...")
-    np.save(change_filename(img_filename, "_fully_mapped_cluster.npy"), classes)
+    plt.ginput(1)
+    plt.close()
     return 0
 
 
@@ -157,7 +157,7 @@ def spectre_moyen_cluster(fully_mapped_cluster="feuille_250624_ref_fully_mapped_
         
         input_var = input("Press Enter to continue or any other key to stop...\n")
     plt.show()
-    plt.ginput(1) 
+    plt.ginput(1)
     plt.close()
     return 0 
 
@@ -171,9 +171,9 @@ def main():
     img_filename = "feuille_250624_ref.hdr"
     # first_kmean()
     # extract_one_cluster()
-    second_kmean(5,50)
+    # second_kmean(5,50)
     color_cluster()
-    spectre_moyen_cluster()
+    # spectre_moyen_cluster()
     return 0
     
 
