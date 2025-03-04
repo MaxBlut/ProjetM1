@@ -51,17 +51,17 @@ def nmToRGB(wavelength):
 def calcule_true_rgb(wl=402):
     if wl > wlMin and wl < wlMax:
         k = round((wl-wlMin)/2)           # The indice of the wavelenght of the color
-        rgb = sp.open_image("feuille_250624_ref.hdr").read_band(k)
+        reflectance = sp.open_image("feuille_250624_ref.hdr").read_band(k)
 
-        nblines = len(rgb)
-        nbcolones = len(rgb[0])
+        nblines = len(reflectance)
+        nbcolones = len(reflectance[0])
         true_rgb_img = [[[0 for _ in range(3)] for _ in range(nbcolones)] for _ in range(nblines)]
+        r, g, b = nmToRGB(wl)
         for i in range(0, nblines):
             for j in range(0, nbcolones):
-                r, g, b = nmToRGB(wl)
-                true_rgb_img[i][j][0] += r*rgb[i][j]*255
-                true_rgb_img[i][j][1] += g*rgb[i][j]*255
-                true_rgb_img[i][j][2] += b*rgb[i][j]*255
+                true_rgb_img[i][j][0] += r*reflectance[i][j]*255
+                true_rgb_img[i][j][1] += g*reflectance[i][j]*255
+                true_rgb_img[i][j][2] += b*reflectance[i][j]*255
         print("True RGB image calculated")
         return true_rgb_img
     else:
