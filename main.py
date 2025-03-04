@@ -1,6 +1,8 @@
 import spectral as sp
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backend_bases import MouseButton
+
 
 
 sp.settings.envi_support_nonlowercase_params = True
@@ -134,7 +136,7 @@ def spectre_moyen_cluster(fully_mapped_cluster="feuille_250624_ref_fully_mapped_
         
         
         sp.imshow(classes=fully_mapped_cluster, title="Please click on the leaf to select it's cluster")
-        coords = plt.ginput(1)                                                          # Attendre 1 clic
+        coords = plt.ginput(1, mouse_add = MouseButton.RIGHT, mouse_pop = MouseButton.LEFT)                                                          # Attendre 1 clic
         x, y = int(coords[0][0]), int(coords[0][1])                                     # Coordonnées du clic
         plt.close()
 
@@ -172,8 +174,8 @@ def main():
     # first_kmean()
     # extract_one_cluster()
     # second_kmean(5,50)
-    color_cluster()
-    # spectre_moyen_cluster()
+    # color_cluster()
+    spectre_moyen_cluster()
     return 0
     
 
