@@ -2,7 +2,15 @@ NO = 0
 YES = 1
 COLLINEAR = 2
 
-def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=0, v1y1=0):
+
+
+
+
+
+
+
+def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=-1, v1y1=-1):
+    #j'ai copié ce code sur : https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
     # Convert vector 1 to a line (line 1) of infinite length.
     a1 = v1y2 - v1y1
     b1 = v1x1 - v1x2
@@ -31,7 +39,7 @@ def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=0, v1y1=0):
 
     # If they are collinear, they intersect in any number of points from zero to infinite.
     if (a1 * b2) - (a2 * b1) == 0.0:
-        return YES
+        return COLLINEAR
 
     # If they are not collinear, they must intersect in exactly one point.
     return YES

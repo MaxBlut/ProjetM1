@@ -2,6 +2,7 @@ import numpy as np
 import spectral as sp
 import matplotlib.pyplot as plt
 import intersecting
+from matplotlib.backend_bases import MouseButton
 
 sp.settings.envi_support_nonlowercase_params = True
 
@@ -16,10 +17,7 @@ data = img.load()
 
 
 def plot_poly(X, Y):
-    print(X)
-    print(Y)    
     n =  len(X)
-    print(n)
     for i in range(n):
         plt.plot([X[i],X[(i+1)%n]], [Y[i],Y[(i+1)%n]], 'ro-')
     return 0
@@ -31,24 +29,21 @@ def plot_poly(X, Y):
 def check_inside_poly(X,Y):
     n = len(X)
     shape = img.shape
-    map = np.full((shape[0], shape[1]), 0, dtype=bool)
-    parite = 0
-    print(min(X), max(X))
-    print(min(Y), max(Y))
-    for i in range(min(X), max(X)):
-        for j in range(min(Y), max(Y)):
+    map = np.full((shape[0], shape[1]), False, dtype=bool)
+    for i in range(int(min(X)), int(max(X))):
+        for j in range(int(min(Y)), int(max(Y))):
             parite = 0
             for k in range(n):
-                parite += intersecting.are_intersecting(j,i,X[k],Y[k],X[(k+1)%n],Y[(k+1)%n]) == 1
-                if(parite % 2 == 0) and (parite != 0):
-                    map[i,j] = True
-    view = sp.imshow(data = data , classes=map)
-    view.class_alpha=0.2
-    view.set_display_mode("classes")
+                parite += intersecting.are_intersecting(i,j,X[k],Y[k],X[(k+1)%n],Y[(k+1)%n])
+            if(parite % 2 == 1) and (parite != 0):
+                map[j,i] = True
+    view = sp.imshow(img, (R, G, B),  classes=map)
+    view.class_alpha=0.5
+    view.set_display_mode("overlay")
     view.refresh()
-    plt.ginput(1)
+    plt.ginput(1,mouse_add = MouseButton.MIDDLE)
     plt.close()
-    return 0
+    return map
 
 
 
@@ -63,13 +58,12 @@ def main():
             print("Il faut au moin 3 points !")
             input_var = ""
         else:
-            X = [int(value[0]) for value in coords]
-            Y = [int(value[1]) for value in coords] 
-            print(data.shape)
+            X = [value[0] for value in coords]
+            Y = [value[1] for value in coords] 
             plot_poly(X,Y)
             input_var = input("Etes vous satisfait de l'image ? (y/n) :\n")
         plt.close()
-    check_inside_poly(X,Y)
+    map = check_inside_poly(X,Y)
     return 0
 
 
