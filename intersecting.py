@@ -1,12 +1,7 @@
 NO = 0
 YES = 1
 COLLINEAR = 2
-
-
-
-
-
-
+import numpy as np
 
 
 def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=-1, v1y1=-1):
@@ -43,3 +38,17 @@ def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=-1, v1y1=-1):
 
     # If they are not collinear, they must intersect in exactly one point.
     return YES
+
+
+def mean_spectre_of_cluster(cluster_map, data, selected_cluster_value=1):
+    # Get the mean spectrum of a cluster in a hyperspectral image.
+    # Args:
+    #     cluster_map: 2D array of cluster labels.
+    #     data: 3D array of hyperspectral data.
+    #     selected_cluster_value: Value of the cluster to analyze.
+    data = data[cluster_map == selected_cluster_value,:]
+    nband = data.shape[1]  # Nombre de bandes spectrales
+    moyenne = np.zeros(nband)  # Initialise la moyenne avec des zéros
+    for j in range(nband):
+        moyenne[j] = np.mean(data[:, j])  # Moyenne pour chaque bande spectral
+    return moyenne

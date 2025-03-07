@@ -1,3 +1,4 @@
+
 import numpy as np
 import spectral as sp
 import matplotlib.pyplot as plt
@@ -52,6 +53,8 @@ def check_inside_poly(X,Y):
 def main():
     input_var = ""
     while input_var !="y":
+        RGB_img = data[:,:,(R,G,B)]
+        # plt.imshow(RGB_img)
         view = sp.imshow(img, (R,G,B),title="tracez un polygone en indiquant les angles avec clique gauche, vous pouvez annuler avec clique droit et mettre fin avec le clic molette")
         coords = plt.ginput(50)
         if(len(coords) < 3):
@@ -67,4 +70,4 @@ def main():
     return 0
 
 
-print(main())
+# print(main())
