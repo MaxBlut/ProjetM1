@@ -1,6 +1,7 @@
 import spectral as sp
 from PIL import Image
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Set the envi_support_nonlowercase_params to True to avoid an error message 
 sp.settings.envi_support_nonlowercase_params = True
@@ -72,31 +73,29 @@ def calcule_true_rgb(wl=402):
 
 
 def main():
-    #img = sp.open_image("feuille_250624_ref.hdr")
-
     img = calcule_true_rgb(470)
 
     # Conversion de la liste en un tableau NumPy
     array = np.array(img, dtype=np.uint8)
 
-    # Création de l'image à partir du tableau
-    image = Image.fromarray(array, mode='RGB')
+    # Utilisation de Matplotlib pour afficher l'image
+    fig, ax = plt.subplots()
+    ax.imshow(array)
+    ax.axis('off')  # Masquer les axes
+
+    # Connexion de la gestion de l'événement de fermeture
+    fig.canvas.mpl_connect('close_event', )
+
+    # Affichage de la fenêtre et attente de la fermeture
+    plt.show()
 
     # Sauvegarde de l'image
+    image = Image.fromarray(array, mode='RGB')
     image.save("output_image.png")
 
-    # Affichage de l'image
-    image.show()
     input("Press Enter to close the program...")
 
-  
-
-    """
-    #view = sp.imshow(img,(R,G,B))
-    input("Press Enter to close the program...")
-    """
     return 0
-
 
 print(main())
 
