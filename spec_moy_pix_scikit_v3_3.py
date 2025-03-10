@@ -3,7 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from matplotlib.backend_bases import MouseButton
+import os
 
+os.environ['OMP_NUM_THREADS'] = '4' 
 
 
 sp.settings.envi_support_nonlowercase_params = True
@@ -48,6 +50,7 @@ def first_kmean():
 
     np.save(change_filename(img_filename, "_background_map.npy"), m)
     return 0 
+    
 
 def extract_one_cluster(cluster_map_filename = "feuille_250624_ref_background_map.npy"):
     #this function is used to extract one cluster from the image
@@ -118,44 +121,46 @@ def spectre_moyen_cluster(fully_mapped_cluster="feuille_250624_ref_fully_mapped_
         plt.imshow(fully_mapped_cluster,  cmap="nipy_spectral")
         plt.title("Please click on the leaf to select its cluster")
         coords = plt.ginput(1, mouse_add = MouseButton.RIGHT, mouse_pop = MouseButton.LEFT)
-        x, y = int(coords[0][0]), int(coords[0][1])  # Coordonnées du clic
-        plt.close()
+        if coords != []:
+            print(coords)
+            x, y = int(coords[0][0]), int(coords[0][1])  # Coordonnées du clic
+            plt.close()
 
-        cluster_i = fully_mapped_cluster[y, x]  # Classe du clic  
+            cluster_i = fully_mapped_cluster[y, x]  # Classe du clic  
 
-        cmap = plt.get_cmap("nipy_spectral")
-        norm = plt.Normalize(vmin=fully_mapped_cluster.min(), vmax=fully_mapped_cluster.max())
-        color_displayed = cmap(norm(cluster_i))[:3] 
+            cmap = plt.get_cmap("nipy_spectral")
+            norm = plt.Normalize(vmin=fully_mapped_cluster.min(), vmax=fully_mapped_cluster.max())
+            color_displayed = cmap(norm(cluster_i))[:3] 
 
-        mask = (fully_mapped_cluster == cluster_i)
-        cluster_data = img.load()[mask, :]
-        if cluster_data.size == 0:
-            print("Aucun pixel trouvé pour ce cluster.")
-            continue
-        print(cluster_data.shape)
+            mask = (fully_mapped_cluster == cluster_i)
+            cluster_data = img.load()[mask, :]
+            if cluster_data.size == 0:
+                print("Aucun pixel trouvé pour ce cluster.")
+                continue
+            print(cluster_data.shape)
 
-        npixels = cluster_data.shape[0]  # Nombre de pixels du cluster
-        nband = cluster_data.shape[1]  # Nombre de bandes spectrales
-        print(cluster_data[0][0])
-        moyenne = np.zeros(nband)  # Initialise la moyenne avec des zéros
-        wavelength = [402 + 2 * i for i in range(nband)]  # Les longueurs d'onde
+            npixels = cluster_data.shape[0]  # Nombre de pixels du cluster
+            nband = cluster_data.shape[1]  # Nombre de bandes spectrales
+            print(cluster_data[0][0])
+            moyenne = np.zeros(nband)  # Initialise la moyenne avec des zéros
+            wavelength = [402 + 2 * i for i in range(nband)]  # Les longueurs d'onde
 
-        for j in range(nband):
-            print(j, "/", nband)
+            for j in range(nband):
+                print(j, "/", nband)
 
-            moyenne[j] = np.mean(cluster_data[:, j])  # Moyenne pour chaque bande spectral
+                moyenne[j] = np.mean(cluster_data[:, j])  # Moyenne pour chaque bande spectral
 
-        # Ajouter le spectre à la liste pour superposer les spectres
-        spectra.append((wavelength, moyenne, color_displayed))
+            # Ajouter le spectre à la liste pour superposer les spectres
+            spectra.append((wavelength, moyenne, color_displayed))
 
-        # Superposer tous les spectres précédemment cliqués
-        plt.figure()
-        for w, m, c in spectra:
-            plt.plot(w, m, color=c)
-        plt.title("Spectres superposés")
-        plt.show()
- 
-        input_var = input("Press Enter to continue or any other key to stop...\n")
+            # Superposer tous les spectres précédemment cliqués
+            plt.figure()
+            for w, m, c in spectra:
+                plt.plot(w, m, color=c)
+            plt.title("Spectres superposés")
+            plt.show()
+    
+            input_var = input("Press Enter to continue or any other key to stop...\n")
 
     plt.close()
     return 0
@@ -166,12 +171,12 @@ def spectre_moyen_cluster(fully_mapped_cluster="feuille_250624_ref_fully_mapped_
 def main():
     global img_filename
     img_filename = "feuille_250624_ref.hdr"
-    # first_kmean()
-    # extract_one_cluster()
-    # second_kmean(6,25)
+    first_kmean()
+    extract_one_cluster()
+    second_kmean(6,25)
     color_cluster()
     spectre_moyen_cluster()
     
 
 
-print(main())
+main()
