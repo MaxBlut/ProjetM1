@@ -1,36 +1,20 @@
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton,QLabel, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-import spectral as sp
-import intersecting
-from matplotlib.backend_bases import MouseButton
 
+import print_RGB.utiles as utiles
+
+import spectral as sp
 sp.settings.envi_support_nonlowercase_params = True
 
 
-wlMin = 402
-R = round((700-wlMin)/2) 
-G = round((550-wlMin)/2)
-B = round((450-wlMin)/2)
-
-img = sp.open_image("feuille_250624_ref.hdr")
-data = img.load()
-RGB_img = data[:,:,(R,G,B)]
-    
-
-def plot_poly(X, Y):
-    n =  len(X)
-    for i in range(n):
-        plt.plot([X[i],X[(i+1)%n]], [Y[i],Y[(i+1)%n]], 'ro-')
-    return 0
-    
-
 
 class MatplotlibImage(QWidget):
-    def __init__(self, image_data):
+    def __init__(self, RGB_img, data):
         super().__init__()
         self.figure, (self.Img_ax, self.second_ax) = plt.subplots(1, 2, figsize=(15, 5), gridspec_kw={'width_ratios': [2, 1]})
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
@@ -41,19 +25,29 @@ class MatplotlibImage(QWidget):
         self.button_delete = QPushButton('delete')
         self.button_delete.clicked.connect(lambda: self.delete("all"))
         
-        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.label = QLabel("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
+        self.label.setContentsMargins(10,10,10,10)  # Set margin for the label
+        self.label.setAlignment(Qt.AlignCenter)  # Center the text
+        self.label.setSizePolicy(QSizePolicy.Preferred , QSizePolicy.Fixed)
+        
+        
+
+        toolbar = NavigationToolbar(self.canvas, self)
+        toolbar.setContentsMargins(10,10,10,10)
         
         layout = QVBoxLayout()
+        
+        layout.addWidget(self.label)
+        layout.addWidget(toolbar)
         layout.addWidget(self.canvas)
-        layout.addWidget(self.toolbar)
         layout.addWidget(self.button_confirm)
         layout.addWidget(self.button_delete)
         self.setLayout(layout)
         
-        self.Img_ax.imshow(image_data, cmap='gray')
+        self.Img_ax.imshow(RGB_img, cmap='gray')
         self.Img_ax.axis('off')
 
-        
+        self.data = data
         self.map = []           # Variable to store the map
         self.overlay = None     # Variable to store the overlay object for easy removal
         self.points = []        # List to store clicked points
@@ -105,6 +99,7 @@ class MatplotlibImage(QWidget):
         self.canvas.draw()
         self.button_confirm.clicked.disconnect()
         self.button_confirm.clicked.connect(self.confirm_to_fill)
+        self.label.setText("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything. \n Press confirm to fill the polygon with color.")
         
 
     def confirm_to_fill(self):
@@ -114,13 +109,13 @@ class MatplotlibImage(QWidget):
         n = len(self.points)
         X = [self.points[i][0] for i in range(n)]
         Y = [self.points[i][1] for i in range(n)]
-        shape = img.shape
+        shape = self.data.shape
         map = np.full((shape[0], shape[1]), False, dtype=bool)
         for i in range(int(min(X)), int(max(X))):
             for j in range(int(min(Y)), int(max(Y))):
                 parite = 0
                 for k in range(n):
-                    parite += intersecting.are_intersecting(i,j,X[k],Y[k],X[(k+1)%n],Y[(k+1)%n])
+                    parite += utiles.are_intersecting(i,j,X[k],Y[k],X[(k+1)%n],Y[(k+1)%n])
                 if(parite % 2 == 1) and (parite != 0):
                     map[j,i] = True
         masked_overlay = np.ma.masked_where(~map, map)
@@ -130,16 +125,16 @@ class MatplotlibImage(QWidget):
         self.canvas.draw()
         self.button_confirm.clicked.disconnect()
         self.button_confirm.clicked.connect(self.confirm_to_plot)
+        self.label.setText("press enter to plot the mean spectrum of the selected shape, and delete to remove everything.")
     
 
     def confirm_to_plot(self):
         # Plot the mean spectrum of the selected cluster 
         print("Plotting")
-        self.second_ax.plot(intersecting.mean_spectre_of_cluster(self.map, data,True), label = "spectre moyen")
+        self.second_ax.plot(utiles.mean_spectre_of_cluster(self.map, self.data,True), label = "spectre moyen")
         self.delete("overlay")
         self.canvas.draw()
-        
-        
+        self.label.setText("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
 
     def delete(self, what):
         # Delete the overlay and/or points and/or lines from the image shown
@@ -172,18 +167,31 @@ class MatplotlibImage(QWidget):
         self.canvas.draw()
 
 
-class MainWindow(QMainWindow):
+class MainWindow_draw_cluster(QMainWindow):
     def __init__(self):
+        wlMin = 402
+        R = round((700-wlMin)/2) 
+        G = round((550-wlMin)/2)
+        B = round((450-wlMin)/2)
+        data = sp.open_image("feuille_250624_ref.hdr").load()
+        RGB_img = data[:,:,(R,G,B)]
+        if RGB_img.max()*2 < 1:
+            RGB_img *= 2
+        RGB_img.max()
+
+
         super().__init__()
         self.setWindowTitle("Matplotlib in PyQt - Click Detection")
-        self.widget = MatplotlibImage(RGB_img)
+        self.widget = MatplotlibImage(RGB_img, data)
         self.setCentralWidget(self.widget)
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = MainWindow_draw_cluster()
     window.show()
     sys.exit(app.exec())
+
+
 
 
