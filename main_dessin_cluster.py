@@ -1,31 +1,34 @@
 import sys
-import matplotlib.pyplot as plt
+import spectral as sp
 import numpy as np
+import matplotlib.pyplot as plt
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton,QLabel, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
-import print_RGB.utiles as utiles
+from utiles import mean_spectre_of_cluster, are_intersecting
 
-import spectral as sp
+
 sp.settings.envi_support_nonlowercase_params = True
 
 
 
 
-def plot_poly(X, Y):
-    n =  len(X)
-    for i in range(n):
-        plt.plot([X[i],X[(i+1)%n]], [Y[i],Y[(i+1)%n]], 'ro-')
-    return 0
-    
-
-
-class MatplotlibImage(QWidget):
-    def __init__(self, RGB_img, data):
+class MainWindow_draw_cluster(QWidget):
+    def __init__(self):
         super().__init__()
-        self.figure, (self.Img_ax, self.second_ax) = plt.subplots(1, 2, figsize=(15, 5), gridspec_kw={'width_ratios': [2, 1]})
+        wlMin = 402
+        R = round((700-wlMin)/2) 
+        G = round((550-wlMin)/2)
+        B = round((450-wlMin)/2)
+        data = sp.open_image("feuille_250624_ref.hdr").load()
+        RGB_img = data[:,:,(R,G,B)]
+        if RGB_img.max()*2 < 1:
+            RGB_img = 2*RGB_img
+        self.setWindowTitle("Matplotlib in PyQt - Click Detection")
+        self.figure, (self.Img_ax, self.second_ax) = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [2, 1]})
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
         self.canvas = FigureCanvas(self.figure)
         self.second_ax.plot([])  # Initialize the second plot
@@ -35,14 +38,14 @@ class MatplotlibImage(QWidget):
         self.button_delete.clicked.connect(lambda: self.delete("all"))
         
         self.label = QLabel("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
-        self.label.setContentsMargins(10,10,10,10)  # Set margin for the label
+        # self.label.setContentsMargins(10,10,10,10)  # Set margin for the label
         self.label.setAlignment(Qt.AlignCenter)  # Center the text
         self.label.setSizePolicy(QSizePolicy.Preferred , QSizePolicy.Fixed)
         
         
 
         toolbar = NavigationToolbar(self.canvas, self)
-        toolbar.setContentsMargins(10,10,10,10)
+        # toolbar.setContentsMargins(10,10,10,10)
         
         layout = QVBoxLayout()
         
@@ -124,7 +127,7 @@ class MatplotlibImage(QWidget):
             for j in range(int(min(Y)), int(max(Y))):
                 parite = 0
                 for k in range(n):
-                    parite += utiles.are_intersecting(i,j,X[k],Y[k],X[(k+1)%n],Y[(k+1)%n])
+                    parite += are_intersecting(i,j,X[k],Y[k],X[(k+1)%n],Y[(k+1)%n])
                 if(parite % 2 == 1) and (parite != 0):
                     map[j,i] = True
         masked_overlay = np.ma.masked_where(~map, map)
@@ -140,7 +143,7 @@ class MatplotlibImage(QWidget):
     def confirm_to_plot(self):
         # Plot the mean spectrum of the selected cluster 
         print("Plotting")
-        self.second_ax.plot(utiles.mean_spectre_of_cluster(self.map, self.data,True), label = "spectre moyen")
+        self.second_ax.plot(mean_spectre_of_cluster(self.map, self.data,True), label = "spectre moyen")
         self.delete("overlay")
         self.canvas.draw()
         self.label.setText("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
@@ -175,24 +178,6 @@ class MatplotlibImage(QWidget):
                 self.line_polts = []
         self.canvas.draw()
 
-
-class MainWindow_draw_cluster(QMainWindow):
-    def __init__(self):
-        wlMin = 402
-        R = round((700-wlMin)/2) 
-        G = round((550-wlMin)/2)
-        B = round((450-wlMin)/2)
-        data = sp.open_image("feuille_250624_ref.hdr").load()
-        RGB_img = data[:,:,(R,G,B)]
-        if RGB_img.max()*2 < 1:
-            RGB_img *= 2
-        RGB_img.max()
-
-
-        super().__init__()
-        self.setWindowTitle("Matplotlib in PyQt - Click Detection")
-        self.widget = MatplotlibImage(RGB_img, data)
-        self.setCentralWidget(self.widget)
 
 
 if __name__ == "__main__":

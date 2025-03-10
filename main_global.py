@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QLabel
-from main_dessin_cluster import MatplotlibImage
-
+from main_dessin_cluster import MainWindow_draw_cluster
+from main_double_kmean_sklearn import KMeansApp
 
 import spectral as sp
 sp.settings.envi_support_nonlowercase_params = True
@@ -26,43 +26,37 @@ class MainWindow(QMainWindow):
 
         # Add tabs to the QTabWidget
         self.tabs.addTab(self.tab1, "Draw Cluster")
-        self.tabs.addTab(self.tab2, "Tab 2")
+        self.tabs.addTab(self.tab2, "Double KMeans")
         self.tabs.addTab(self.tab3, "Tab 3")
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
 
         # Initialize a dictionary to keep track of created tabs
-        self.created_tabs = {}
-
+        self.setup_tab1()
     def on_tab_changed(self, index):
-        if index == 0 and index not in self.created_tabs:
+        if index == 0:
             self.setup_tab1()
             self.created_tabs[index] = True
-        elif index == 1 and index not in self.created_tabs:
+            self.unload_tabs(tab2=True, tab3=True)
+        elif index == 1:
             self.setup_tab2()
             self.created_tabs[index] = True
-        elif index == 2 and index not in self.created_tabs:
+            self.unload_tabs(tab1=True, tab3=True)
+        elif index == 2:
             self.setup_tab3()
             self.created_tabs[index] = True
+            self.unload_tabs(tab1=True, tab2=True)
 
     def setup_tab1(self):
-        wlMin = 402
-        R = round((700-wlMin)/2) 
-        G = round((550-wlMin)/2)
-        B = round((450-wlMin)/2)
-        data = sp.open_image("feuille_250624_ref.hdr").load()
-        RGB_img = data[:,:,(R,G,B)]
-        if RGB_img.max()*2 < 1:
-            RGB_img *= 2
         layout = QVBoxLayout()
-        all = MatplotlibImage(RGB_img, data)
+        all = MainWindow_draw_cluster()
         layout.addWidget(all)
         self.tab1.setLayout(layout)
 
     def setup_tab2(self):
         layout = QVBoxLayout()
-        label = QLabel("This is Tab 2")
-        layout.addWidget(label)
+        all = KMeansApp()
+        layout.addWidget(all)
         self.tab2.setLayout(layout)
 
     def setup_tab3(self):
@@ -70,7 +64,14 @@ class MainWindow(QMainWindow):
         label = QLabel("This is Tab 3")
         layout.addWidget(label)
         self.tab3.setLayout(layout)
-
+    
+    def unload_tabs(self, tab1=False, tab2=False, tab3=False):
+        if tab1:
+            self.tab1.setLayout(None)
+        if tab2:
+            self.tab2.setLayout(None)
+        if tab3:
+            self.tab3.setLayout(None)
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()

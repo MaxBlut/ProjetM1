@@ -1,10 +1,10 @@
-NO = 0
-YES = 1
-COLLINEAR = 2
 import numpy as np
 
 
 def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=-1, v1y1=-1):
+    NO = 0
+    YES = 1
+    COLLINEAR = 2
     #j'ai copié ce code sur : https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
     # Convert vector 1 to a line (line 1) of infinite length.
     a1 = v1y2 - v1y1
