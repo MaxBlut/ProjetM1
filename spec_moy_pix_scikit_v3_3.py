@@ -12,15 +12,28 @@ sp.settings.envi_support_nonlowercase_params = True
 np.random.seed(42)
 spectra = []  # Liste pour stocker les spectres sélectionnés
 
+def mean_spectre_of_cluster(cluster_map, data, selected_cluster_value=1):
+    # Get the mean spectrum of a cluster in a hyperspectral image.
+    # Args:
+    #     cluster_map: 2D array of cluster labels.
+    #     data: 3D array of hyperspectral data.
+    #     selected_cluster_value: Value of the cluster to analyze.
+    data = data[cluster_map == selected_cluster_value,:]
+    nband = data.shape[1]  # Nombre de bandes spectrales
+    moyenne = np.zeros(nband)  # Initialise la moyenne avec des zéros
+    for j in range(nband):
+        moyenne[j] = np.mean(data[:, j])  # Moyenne pour chaque bande spectral
+    return moyenne
 
 
 
-def first_kmean(data_img):
+
+def first_kmean(data_img, iteration= 20):
     # Chargement des données
     reshaped_data = data_img.reshape(-1, data_img.shape[-1])  # Aplatir en 2D
 
     # Clustering avec sklearn
-    kmeans = KMeans(n_clusters=2, n_init='auto', max_iter=20, random_state=42)
+    kmeans = KMeans(n_clusters=2, n_init='auto', max_iter=iteration, random_state=42)
     labels = kmeans.fit_predict(reshaped_data)
 
     # Reconstruction en 2D
@@ -117,64 +130,21 @@ def spectre_moyen_cluster(data_img, second_cluster_map):
 
 def spectre_moyen_de_tout_cluster(data_img, second_cluster_map):
     cmap_name = "nipy_spectral"
-    AxesImage = plt.imshow(second_cluster_map,  cmap=cmap_name)
-    n_cluster = len(set(second_cluster_map))
+    figure, (Img_ax, second_ax) = plt.subplots(1, 2, figsize=(15, 5), gridspec_kw={'width_ratios': [2, 1]})
+    Img_ax.imshow(second_cluster_map,  cmap=cmap_name)
+    n_cluster = len(np.unique(second_cluster_map))  # Nombre de clusters
     cmap = plt.get_cmap(cmap_name)
     norm = plt.Normalize(vmin=second_cluster_map.min(), vmax=second_cluster_map.max())
-    color_displayed = cmap(norm(cluster_i))[:3] 
-    
+   
+    wavelength = [402 + 2 * i for i in range(data_img.shape[2])]  # Les longueurs d'onde
     for i in range(n_cluster):
-        mask = (second_cluster_map == i)
-        cluster_data = data_img[mask, :]
-        moyenne = np.zeros(nband)  # Initialise la moyenne avec des zéros
-        wavelength = [402 + 2 * i for i in range(nband)]  # Les longueurs d'onde
-        for j in range(nband):
-            moyenne[j] = np.mean(cluster_data[:, j])  # Moyenne pour chaque bande spectral
-
-
-    input_var = ""
-    while input_var == "":
-        
-        plt.title("Please click on the leaf to select its cluster")
-        coords = plt.ginput(1, mouse_add = MouseButton.RIGHT, mouse_pop = MouseButton.LEFT, timeout = 0)
-        if coords != []:
-            print(coords)
-            x, y = int(coords[0][0]), int(coords[0][1])  # Coordonnées du clic
-            plt.close()
-
-            cluster_i = second_cluster_map[y, x]  # Classe du clic  
-
-            cmap = plt.get_cmap("nipy_spectral")
-            norm = plt.Normalize(vmin=second_cluster_map.min(), vmax=second_cluster_map.max())
-            color_displayed = cmap(norm(cluster_i))[:3] 
-
-            mask = (second_cluster_map == cluster_i)
-            cluster_data = data_img[mask, :]
-            if cluster_data.size == 0:
-                print("Aucun pixel trouvé pour ce cluster.")
-                continue
-            print(cluster_data.shape)
-
-            nband = cluster_data.shape[1]  # Nombre de bandes spectrales
-            print(cluster_data[0][0])
-            moyenne = np.zeros(nband)  # Initialise la moyenne avec des zéros
-            wavelength = [402 + 2 * i for i in range(nband)]  # Les longueurs d'onde
-
-            for j in range(nband):
-                moyenne[j] = np.mean(cluster_data[:, j])  # Moyenne pour chaque bande spectral
-
-            # Ajouter le spectre à la liste pour superposer les spectres
-            spectra.append((wavelength, moyenne, color_displayed))
-
-            # Superposer tous les spectres précédemment cliqués
-            plt.figure()
-            for w, m, c in spectra:
-                plt.plot(w, m, color=c)
-            plt.title("Spectres superposés")
-            plt.show()
+        color_displayed = cmap(norm(i))[:3] 
+        moyenne = mean_spectre_of_cluster(second_cluster_map, data_img, selected_cluster_value=i)
+        second_ax.plot(wavelength,moyenne, color=color_displayed, label=f"Cluster {i}")
     
-            input_var = input("Press Enter to continue or any other key to stop...\n")
-
+    plt.title("Spectres superposés")
+    plt.show()
+    figure.ginput(1, mouse_add = MouseButton.RIGHT, mouse_pop = MouseButton.LEFT, timeout = 0)
     plt.close()
     return 0
 
@@ -183,11 +153,10 @@ def main(img_filename = "feuille_250624_ref.hdr"):
 
     # global data_img
     data_img = sp.open_image(img_filename).load()
-    
-    first_cluster_map = first_kmean(data_img)
+    first_cluster_map = first_kmean(data_img,10)
     data_first_cluster = extract_one_cluster(data_img, first_cluster_map)
     second_cluster_map = second_kmean(6,25,first_cluster_map,data_first_cluster)
-    spectre_moyen_cluster(data_img,second_cluster_map)
+    spectre_moyen_de_tout_cluster(data_img,second_cluster_map)
     
 
 
