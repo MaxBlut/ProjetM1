@@ -68,32 +68,33 @@ def calcule_true_rgb(wl=402):
     else:
         print("The wavelength is out of the range")
         return 1
-
+    
+def on_close(event):
+    print("La fenêtre a été fermée.")
+    plt.close()  # Ferme la fenêtre de matplotlib proprement
 
 
 
 def main():
-    img = calcule_true_rgb(470)
+    #img = calcule_true_rgb(550)
 
-    # Conversion de la liste en un tableau NumPy
-    array = np.array(img, dtype=np.uint8)
+    # # Conversion de la liste en un tableau NumPy
+    # array = np.array(img, dtype=np.uint8)
 
-    # Utilisation de Matplotlib pour afficher l'image
-    fig, ax = plt.subplots()
-    ax.imshow(array)
-    ax.axis('off')  # Masquer les axes
+    # # Utilisation de Matplotlib pour afficher l'image
+    # fig, ax = plt.subplots()
+    # ax.imshow(array)
+    # ax.axis('off')  # Masquer les axes
 
-    # Connexion de la gestion de l'événement de fermeture
-    fig.canvas.mpl_connect('close_event', )
+    # # Connexion de la gestion de l'événement de fermeture
+    # fig.canvas.mpl_connect('close_event',on_close )
 
-    # Affichage de la fenêtre et attente de la fermeture
-    plt.show()
+    # # Affichage de la fenêtre et attente de la fermeture
+    # plt.show()
 
-    # Sauvegarde de l'image
-    image = Image.fromarray(array, mode='RGB')
-    image.save("output_image.png")
-
-    input("Press Enter to close the program...")
+    # # Sauvegarde de l'image
+    # image = Image.fromarray(array, mode='RGB')
+    # image.save("output_image.png")
 
     return 0
 
