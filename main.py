@@ -108,7 +108,7 @@ def calcule_true_gray_opti(wl):
     gray_img = (reflectance * 255).astype(np.uint8)
 
     # Calcul du maximum des pixels pour vérifier si la saturation est possible
-    max_value = np.max(gray_img)
+    # max_value = np.max(gray_img)
 
     # Vérification si la composante maximale peut être multipliée par 2 sans dépasser 255
     # if max_value * 2 <= 255:
