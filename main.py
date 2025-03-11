@@ -49,8 +49,8 @@ def nmToRGB(wavelength):
     
 
 
-def calcule_true_rgb(wl=402):
-    if wl > wlMin and wl < wlMax:
+def calcule_true_rgb(wl):
+    if wl >= wlMin and wl <= wlMax:
         k = round((wl-wlMin)/2)           # The indice of the wavelenght of the color
         reflectance = sp.open_image("feuille_250624_ref.hdr").read_band(k)
 
@@ -76,7 +76,7 @@ def on_close(event):
 
 
 def main():
-    #img = calcule_true_rgb(550)
+    img = calcule_true_rgb(550)
 
     # # Conversion de la liste en un tableau NumPy
     # array = np.array(img, dtype=np.uint8)

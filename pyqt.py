@@ -92,6 +92,9 @@ class MatplotlibImage(QWidget):
     def update_label(self):
         """Met à jour le QLabel avec la valeur actuelle du curseur."""
         self.label.setText(f"Longeur d'onde : {self.slider.value()} nm")
+    def get_slider_value(self):
+        """Retourne la valeur actuelle du slider."""
+        return self.slider.value()
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -99,8 +102,19 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Appli curseur")
         self.showMaximized()
 
-        # Charger l'image depuis main.py
-        img_data = m.calcule_true_rgb(550)
+        # Exemple d'image initiale (image noire de 100x100 pixels)
+        initial_image = np.zeros((100, 100, 3), dtype=np.uint8)
+
+        # Créer l'instance de MatplotlibImage avec l'image initiale
+        self.matplotlib_widget = MatplotlibImage(initial_image)
+        self.setCentralWidget(self.matplotlib_widget)
+
+        # Obtenir la valeur du slider
+        slider_value = self.matplotlib_widget.get_slider_value()
+        print(f"Slider value: {slider_value}")
+
+        # Passer la valeur du slider à la méthode calcule_true_rgb
+        img_data = m.calcule_true_rgb(slider_value)
         if isinstance(img_data, int):  # Vérifier si l'image est invalide
             print("Erreur lors du chargement de l'image.")
             sys.exit()
@@ -110,7 +124,6 @@ class MainWindow(QMainWindow):
         # Ajouter l'image Matplotlib dans l'interface PyQt
         self.matplotlib_widget = MatplotlibImage(img_array)
         self.setCentralWidget(self.matplotlib_widget)
-
 if __name__ == "__main__":
     app = QApplication.instance()
     if not app:  
