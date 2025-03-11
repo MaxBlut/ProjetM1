@@ -17,6 +17,8 @@ class MatplotlibImage(QWidget):
     def __init__(self, RGB_img):
         super().__init__()
 
+        self.setStyleSheet("background-color: #2E2E2E;")
+
         # Création de la figure et du canvas
         self.figure, self.Img_ax = plt.subplots(figsize=(6, 6))
         self.canvas = FigureCanvas(self.figure)
@@ -34,30 +36,32 @@ class MatplotlibImage(QWidget):
 
         # Ajuster la largeur du slider pour qu'il corresponde à la largeur de l'image
         self.slider.setFixedWidth(self.width() - 50)  # Laisser un peu d'espace autour
+        font = QFont("Verdana", 20, QFont.Bold)  # Choisir la police Arial, taille 20, en gras
 
-        # Créer un QLabel pour afficher la valeur actuelle du curseur
+        # ECHELLE MIDDLE
         self.label = QLabel(f"Longeur d'onde : 0 nm")
         self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("background-color: #AAB7B8; color: black; border-radius: 5px; font-size: 30px;")
+        self.label.setStyleSheet("background-color: black; color: white; border-radius: 15px; font-size: 30px;")
         self.label.setFixedHeight(30)  # Ajuster la hauteur du label à 30px par exemple
-
-        font = QFont("Segoe UI", 20, QFont.Bold)  # Choisir la police Arial, taille 20, en gras
         self.label.setFont(font)  # Appliquer la police au label
-        # Créer les labels pour les bornes du slider
+
+
+        # ECHELLE SLIDER GAUCHE
         self.left_label = QLabel("402 nm")
         self.left_label.setAlignment(Qt.AlignLeft)
-        self.left_label.setStyleSheet("background-color: #AAB7B8; color: black; font-size: 20px;")
+        self.left_label.setStyleSheet("background-color: black; color: white; font-size: 20px; border-radius: 15px;")
         self.left_label.setFont(font)  # Appliquer la même police
 
+        # ECHELLE SLIDER DROITE
         self.right_label = QLabel("998 nm")
         self.right_label.setAlignment(Qt.AlignRight)
-        self.right_label.setStyleSheet("background-color: #AAB7B8; color: black; font-size: 20px;")
-        self.left_label.setFont(font)  # Appliquer la même police
+        self.right_label.setStyleSheet("background-color: black; color: white; font-size: 20px; border-radius: 15px;")
+        self.right_label.setFont(font)  # Appliquer la même police
 
 
 
         # Connecter le signal de changement de valeur du slider à la méthode de mise à jour
-        self.slider.valueChanged.connect(self.update_label)
+        self.slider.valueChanged.connect(self.update_image)
 
         # Layout principal
         layout = QVBoxLayout()
@@ -70,8 +74,6 @@ class MatplotlibImage(QWidget):
         slider_layout = QHBoxLayout()
         slider_layout.addWidget(self.left_label)
         slider_layout.addWidget(self.slider)
-        # spacer = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        # slider_layout.addItem(spacer)
         slider_layout.addWidget(self.right_label)
 
 
@@ -89,9 +91,28 @@ class MatplotlibImage(QWidget):
         # Imposer une taille fixe à la fenêtre (si nécessaire)
         self.setFixedSize(800, 600)  # Taille fixe de la fenêtre
 
-    def update_label(self):
-        """Met à jour le QLabel avec la valeur actuelle du curseur."""
-        self.label.setText(f"Longeur d'onde : {self.slider.value()} nm")
+        self.update_image()
+
+    def update_image(self):
+        """Met à jour l'image en fonction de la valeur actuelle du curseur."""
+        # Obtenir la valeur du slider
+        wavelength = self.slider.value()
+        self.label.setText(f"Longeur d'onde : {wavelength} nm")
+
+        # Passer la valeur du slider à la méthode calcule_true_rgb
+        img_data = m.calcule_true_rgb_opti(wavelength)
+
+        # Convertir l'image en tableau numpy
+        img_array = np.array(img_data, dtype=np.uint8)
+
+        # Effacer l'ancienne image
+        self.Img_ax.clear()
+
+        # Afficher la nouvelle image
+        self.Img_ax.imshow(img_array)
+        self.Img_ax.axis('off')
+        self.canvas.draw()
+
     def get_slider_value(self):
         """Retourne la valeur actuelle du slider."""
         return self.slider.value()
@@ -101,6 +122,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Appli curseur")
         self.showMaximized()
+        self.setStyleSheet("background-color: #2E2E2E;")
+
 
         # Exemple d'image initiale (image noire de 100x100 pixels)
         initial_image = np.zeros((100, 100, 3), dtype=np.uint8)
@@ -109,21 +132,6 @@ class MainWindow(QMainWindow):
         self.matplotlib_widget = MatplotlibImage(initial_image)
         self.setCentralWidget(self.matplotlib_widget)
 
-        # Obtenir la valeur du slider
-        slider_value = self.matplotlib_widget.get_slider_value()
-        print(f"Slider value: {slider_value}")
-
-        # Passer la valeur du slider à la méthode calcule_true_rgb
-        img_data = m.calcule_true_rgb(slider_value)
-        if isinstance(img_data, int):  # Vérifier si l'image est invalide
-            print("Erreur lors du chargement de l'image.")
-            sys.exit()
-
-        img_array = np.array(img_data, dtype=np.uint8)
-
-        # Ajouter l'image Matplotlib dans l'interface PyQt
-        self.matplotlib_widget = MatplotlibImage(img_array)
-        self.setCentralWidget(self.matplotlib_widget)
 if __name__ == "__main__":
     app = QApplication.instance()
     if not app:  
