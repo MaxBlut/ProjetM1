@@ -36,6 +36,42 @@ class MatplotlibImage_RGB(QWidget):
 
         # Ajuster la largeur du slider pour qu'il corresponde à la largeur de l'image
         self.slider.setFixedWidth(self.width() - 50)  # Laisser un peu d'espace autour
+
+        self.slider.setStyleSheet("""
+                QSlider {
+                    background-color: #444444;
+                    height: 12px;
+                    border-radius: 6px;
+                }
+                QSlider::handle {
+                    background-color: #FF6347;
+                    border: 2px solid #D43F00;
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 15px;
+                    margin-top: -9px;  # Pour centrer le handle sur le slider
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                }
+                QSlider::handle:pressed {
+                    background-color: #FF4500;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+                }
+                QSlider::sub-page {
+                    background-color: #555555;
+                    border-radius: 6px;
+                }
+                QSlider::add-page {
+                    background-color: #888888;
+                    border-radius: 6px;
+                }
+                QSlider::groove {
+                    border: 1px solid #666;
+                    background: #333333;
+                    border-radius: 6px;
+                }
+            """)
+
+
         font = QFont("Verdana", 20, QFont.Bold)  # Choisir la police Arial, taille 20, en gras
 
         # ECHELLE MIDDLE
@@ -118,6 +154,7 @@ class MatplotlibImage_RGB(QWidget):
         return self.slider.value()
 
 
+
 class MatplotlibImage_Gris(QWidget):
     def __init__(self, RGB_img):
         super().__init__()
@@ -132,16 +169,59 @@ class MatplotlibImage_Gris(QWidget):
         for action in toolbar.actions():
             if action.text() in ["Home", "Customize"]:  # "Customize" correspond au bouton statistique
                 toolbar.removeAction(action)
+        
         # Créer un QSlider (curseur horizontal ou vertical)
         self.slider = QSlider(Qt.Horizontal)  # Qt.Vertical pour un curseur vertical
-        self.slider.setRange(402, 998)  # Plage du curseur basée sur la largeur de l'image
+        self.slider.setRange(402, 998)  # Plage du curseur
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.setTickInterval(2)
-        self.slider.setSingleStep(2)    # Pas de 2 pour chaque "clic" ou déplacement
+        self.slider.setSingleStep(2)  # Pas de 2 pour chaque "clic" ou déplacement
 
-        # Ajuster la largeur du slider pour qu'il corresponde à la largeur de l'image
-        self.slider.setFixedWidth(self.width() - 50)  # Laisser un peu d'espace autour
-        font = QFont("Verdana", 20, QFont.Bold)  # Choisir la police Arial, taille 20, en gras
+        # Personnaliser l'apparence du slider
+        self.slider.setStyleSheet("""
+    QSlider {
+        background-color: #BEBEBE;  # Couleur de fond gris foncé pour la partie non parcourue
+        border-radius: 5px;
+        height: 8px;  # Hauteur du slider
+    }
+    
+    QSlider::handle {
+        background-color: #4DB8FF;  # Couleur bleue claire du handle
+        border: 1px solid #1E6D8C;  # Bordure bleue plus foncée pour le handle
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;  # Légèrement arrondi, évite des erreurs avec 50%
+        margin-top: -6px;  # Déplacer le handle vers le haut pour centrer correctement
+    }
+    
+    QSlider::handle:pressed {
+        background-color: #3399FF;  # Couleur du handle quand il est pressé (bleu plus foncé)
+    }
+
+    QSlider::sub-page {
+        background-color: #C8E0FF;  # Couleur bleue claire de la partie parcourue du slider
+        border-radius: 5px;
+    }
+    
+    QSlider::add-page {
+        background-color: #555555;  # Couleur gris foncé de la partie non parcourue du slider
+        border-radius: 5px;
+    }
+
+    QSlider::groove:horizontal {
+        border-radius: 5px;
+        height: 8px;
+    }
+""")
+
+
+
+
+
+
+
+
+        font = QFont("Verdana", 25, QFont.Bold)  # Choisir une police plus grande et plus audacieuse
 
         # ECHELLE MIDDLE
         self.label = QLabel(f"Longeur d'onde : 0 nm")
@@ -189,7 +269,7 @@ class MatplotlibImage_Gris(QWidget):
         self.setLayout(layout)
 
         # Affichage de l'image dans PyQt uniquement
-        self.Img_ax.imshow(RGB_img, cmap='gray')
+        self.Img_ax.imshow(RGB_img, )
         self.Img_ax.axis('off')
         self.canvas.draw()
 
