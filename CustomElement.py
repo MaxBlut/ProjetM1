@@ -6,6 +6,7 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 import matplotlib.pyplot as plt
 import numpy as np
 
+from matplotlib.legend import Legend
 
 class CustomToolbar(NavigationToolbar):
     """Custom Matplotlib Toolbar with Two Toggle Buttons (Can Be Unchecked)"""
@@ -29,7 +30,7 @@ class CustomToolbar(NavigationToolbar):
         self.button_group = QButtonGroup(self)
         self.button_group.setExclusive(False)  # Allows unchecking
         self.button_group.addButton(self.mean_spctr_point_button)
-        self.button_group.addButton(self.dark_mode_button)
+        # self.button_group.addButton(self.dark_mode_button)
 
         # Insert buttons on the LEFT side of the toolbar
         self.insertWidget(self.actions()[0], self.mean_spctr_point_button)
@@ -44,11 +45,46 @@ class CustomToolbar(NavigationToolbar):
             if self.parent.data_img is not None:
                 if event.inaxes == self.parent.axs[0]:  # Check if click is on the left graph
                     if event.xdata is not None and event.ydata is not None:
+                        
                         x, y = int(event.xdata), int(event.ydata)
                         data = self.parent.data_img[y,x,:].reshape(1,-1)
-                        self.parent.axs[1].plot(self.parent.wavelengths,data[0] , label=f"Point ({x}, {y})")
-                        self.parent.axs[1].legend()
+                        line, = self.parent.axs[1].plot(self.parent.wavelengths, data[0] , label=f"Point ({x}, {y})", picker=True)
+
+                        self.parent.legend_obj.remove()  # Remove the previous legend
+                        self.parent.legend_label.append(f"Point ({x}, {y})")
+                        legend = PickableLegend(self.parent.axs[1], self.parent.axs[1].get_lines(), self.parent.legend_label)
+                        self.parent.graph_dict[legend.get_lines()[-1]] = line # Store the graph in the dictionary
+                        self.parent.legend_obj = self.parent.axs[1].add_artist(legend)
+                        # on récupere la ligne n°-1 (la derniere) de la légende du graphique de droite
+                        
                         self.parent.canvas.draw()  # Update the figure
+
+
+
+
+class PickableLegend(Legend):
+    """Custom Legend that enables picking on legend items by default."""
+    def __init__(self, parent_ax, *args, **kwargs):
+        super().__init__(parent_ax, *args, **kwargs)
+        self.parent_ax = parent_ax  # Store reference to the axes
+
+        # Enable picking for all legend items
+        self._enable_picking()
+
+    def _enable_picking(self):
+        """Enable picking for all legend lines."""
+        for leg_line, orig_line in zip(self.get_lines(), self.parent_ax.get_lines()):
+            leg_line.set_picker(True)  # Enable clicking on legend items
+            leg_line.set_pickradius(10)  # Make it easier to click
+            leg_line.original_line = orig_line  # Store reference to the plot line
+
+
+
+
+
+
+
+
 
 
 
@@ -62,7 +98,7 @@ class MatplotlibWidget(QWidget):
         self.canvas = FigureCanvas(self.figure)
 
         # Custom Matplotlib toolbar (pass ax reference)
-        self.toolbar = CustomToolbar(self.canvas, self.ax, self)
+        self.toolbar = CustomToolbar(self.canvas, self)
 
         # Example plot
         x = np.linspace(0, 10, 100)

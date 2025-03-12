@@ -28,7 +28,7 @@ class MainWindow_draw_cluster(QWidget):
         if RGB_img.max()*2 < 1:
             RGB_img = 2*RGB_img
         self.setWindowTitle("Matplotlib in PyQt - Click Detection")
-        self.figure, (self.Img_ax, self.second_ax) = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [2, 1]})
+        self.figure, (self.Img_ax, self.second_ax) = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
         self.canvas = FigureCanvas(self.figure)
         self.second_ax.plot([])  # Initialize the second plot

@@ -2,7 +2,8 @@ import sys
 import spectral as sp
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, MiniBatchKMeans
+from time import time
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel,
@@ -11,13 +12,12 @@ from PySide6.QtWidgets import (
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
-from CustomToolbar import CustomToolbar
-
-sp.settings.envi_support_nonlowercase_params = True
+from CustomElement import CustomToolbar, PickableLegend 
 
 import os
 os.environ['OMP_NUM_THREADS'] = '4' 
-
+np.random.seed(42)
+sp.settings.envi_support_nonlowercase_params = True
 
 class KMeansApp(QMainWindow):
     def __init__(self):
@@ -28,7 +28,9 @@ class KMeansApp(QMainWindow):
         self.data_img = None
         self.first_cluster_map = None
         self.second_cluster_map = None
-        
+        self.graph_dict = {} # Dictionary to store the graphs for toggling visibility and easy removal
+        self.legend_obj = None
+        self.legend_label = []
         self.init_ui()
     
     def init_ui(self):
@@ -79,6 +81,7 @@ class KMeansApp(QMainWindow):
         self.btn_second_kmean.clicked.connect(self.apply_second_kmean)
         self.btn_spectra.clicked.connect(self.display_spectra)
         self.canvas.mpl_connect("button_press_event", self.on_click)
+        self.canvas.mpl_connect("pick_event", self.on_pick)
     
     def load_file(self):
         self.file_path = None
@@ -115,16 +118,18 @@ class KMeansApp(QMainWindow):
     
     def apply_first_kmean(self):
         if self.data_img is not None:
-            reshaped_data = self.data_img.reshape(-1, self.data_img.shape[-1])
-            kmeans = KMeans(n_clusters=2, n_init='auto', max_iter=20, random_state=42)
-            labels = kmeans.fit_predict(reshaped_data)
+            t1 = time()
+            reshaped_data = self.data_img.reshape(-1, self.data_img.shape[-1]) # Reshape to (n_lines*n_colones, n_bands)
+            kmeans = MiniBatchKMeans(n_clusters=2, n_init='auto', max_iter=10, random_state=42)
+            labels = kmeans.fit_predict(reshaped_data[:,::10]) # uses a fraction of the bands for clustering to speed up the process
             self.first_cluster_map = labels.reshape(self.data_img.shape[:-1])
-
             self.axs[0].clear()
-            self.axs[0].imshow(self.first_cluster_map)
+            self.axs[0].imshow(self.first_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
             self.canvas.draw()
+            print("first kmean executed in:", time()-t1)
     
+
     def apply_second_kmean(self):
         if self.data_img is not None and self.first_cluster_map is not None:
             try:
@@ -135,7 +140,7 @@ class KMeansApp(QMainWindow):
            
             mask = self.first_cluster_map == 1
             data_first_cluster = self.data_img[mask, :]
-            kmeans = KMeans(n_clusters=n_clusters, n_init='auto', max_iter=iterations)# , random_state=42
+            kmeans = KMeans(n_clusters=n_clusters, n_init='auto', max_iter=iterations, random_state=42)
             labels = kmeans.fit_predict(data_first_cluster)
             self.second_cluster_map = np.zeros_like(self.first_cluster_map, dtype=int)
             self.second_cluster_map[mask] = labels + 1
@@ -145,17 +150,30 @@ class KMeansApp(QMainWindow):
             self.axs[0].axis('off')
             self.canvas.draw()
     
+
     def display_spectra(self):
         if self.data_img is not None and self.second_cluster_map is not None:
-            self.axs[1].clear()
+            self.axs[1].clear()     # Clear the right graph
+            self.graph_dict = {}    # Reset the graph dictionary
             cmap = plt.get_cmap("nipy_spectral")
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
+            # Store plotted lines
+            plotted_lines = []
+            
             for i in np.unique(self.second_cluster_map):
                 mask = self.second_cluster_map == i
                 avg_spectrum = np.mean(self.data_img[mask, :], axis=0)
-                self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
-            
-            self.axs[1].legend()
+                line, = self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
+                plotted_lines.append(line)
+                self.legend_label.append(f"Cluster {i}")
+            # Create the legend **AFTER** plotting all lines
+            legend = PickableLegend(self.axs[1], self.axs[1].get_lines(), self.legend_label)
+            self.legend_obj = self.axs[1].add_artist(legend)
+
+             # Store mapping of legend -> plot
+            for legend_line, plot_line in zip(legend.get_lines(), plotted_lines):
+                self.graph_dict[legend_line] = plot_line 
+
             self.canvas.draw()
 
 
@@ -163,13 +181,28 @@ class KMeansApp(QMainWindow):
         """Handles mouse clicks on the left graph to get pixel coordinates."""
         if event.inaxes == self.axs[0]:  # Check if click is on the left graph
             x, y = int(event.xdata), int(event.ydata)
-            # print(f"Clicked at: x={x}, y={y}")  # Debugging output
 
             # Identify the cluster under the click
             if self.first_cluster_map is not None:
                 if self.first_cluster_map[y, x] != 1:
                     self.first_cluster_map = 1 - self.first_cluster_map
                     self.second_cluster_map = None
+
+    def on_pick(self, event):
+        """Handles pick events to toggle visibility of spectra."""
+        print("picked")
+        
+        legend = event.artist
+        isVisible = legend.get_visible()
+        # Toggle visibility of the corresponding plot
+        print("legende :" , legend)
+        print("self.graph_dict : ", self.graph_dict)
+        if legend in self.graph_dict:
+            print("in the if")
+            self.graph_dict[legend].set_visible(not isVisible)
+            legend.set_visible(not isVisible)
+
+        self.canvas.draw()
 
 
 if __name__ == "__main__":
