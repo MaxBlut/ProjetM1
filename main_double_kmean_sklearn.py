@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
+from CustomToolbar import CustomToolbar
 
 sp.settings.envi_support_nonlowercase_params = True
 
@@ -22,6 +23,7 @@ class KMeansApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("K-Means Clustering on HDR Images")
+        self.wavelengths = None
         self.file_path = None
         self.data_img = None
         self.first_cluster_map = None
@@ -47,7 +49,7 @@ class KMeansApp(QMainWindow):
         self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10))
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
         self.canvas = FigureCanvas(self.figure)
-        layout.addWidget(NavigationToolbar(self.canvas, self))
+        layout.addWidget(CustomToolbar(self.canvas, self))
         layout.addWidget(self.canvas)
         
         # Buttons
@@ -87,6 +89,7 @@ class KMeansApp(QMainWindow):
         if self.file_path:
             self.file_label.setText(f"Fichier : {self.file_path}")
             self.data_img = sp.open_image(self.file_path).load()
+            self.wavelengths = [402 + 2 * i for i in range(self.data_img.shape[2])]
         self.axs[0].clear()
         self.axs[1].clear()
         self.display_image()
@@ -118,7 +121,7 @@ class KMeansApp(QMainWindow):
             self.first_cluster_map = labels.reshape(self.data_img.shape[:-1])
 
             self.axs[0].clear()
-            self.axs[0].imshow(self.first_cluster_map, cmap='jet')
+            self.axs[0].imshow(self.first_cluster_map)
             self.axs[0].axis('off')
             self.canvas.draw()
     
@@ -147,12 +150,10 @@ class KMeansApp(QMainWindow):
             self.axs[1].clear()
             cmap = plt.get_cmap("nipy_spectral")
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
-            wavelengths = [402 + 2 * i for i in range(self.data_img.shape[2])]
-            
             for i in np.unique(self.second_cluster_map):
                 mask = self.second_cluster_map == i
                 avg_spectrum = np.mean(self.data_img[mask, :], axis=0)
-                self.axs[1].plot(wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
+                self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
             
             self.axs[1].legend()
             self.canvas.draw()
@@ -162,7 +163,7 @@ class KMeansApp(QMainWindow):
         """Handles mouse clicks on the left graph to get pixel coordinates."""
         if event.inaxes == self.axs[0]:  # Check if click is on the left graph
             x, y = int(event.xdata), int(event.ydata)
-            print(f"Clicked at: x={x}, y={y}")  # Debugging output
+            # print(f"Clicked at: x={x}, y={y}")  # Debugging output
 
             # Identify the cluster under the click
             if self.first_cluster_map is not None:

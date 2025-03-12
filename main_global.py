@@ -36,15 +36,12 @@ class MainWindow(QMainWindow):
     def on_tab_changed(self, index):
         if index == 0:
             self.setup_tab1()
-            self.created_tabs[index] = True
             self.unload_tabs(tab2=True, tab3=True)
         elif index == 1:
             self.setup_tab2()
-            self.created_tabs[index] = True
             self.unload_tabs(tab1=True, tab3=True)
         elif index == 2:
             self.setup_tab3()
-            self.created_tabs[index] = True
             self.unload_tabs(tab1=True, tab2=True)
 
     def setup_tab1(self):
