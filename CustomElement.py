@@ -48,12 +48,11 @@ class CustomToolbar(NavigationToolbar):
                         
                         x, y = int(event.xdata), int(event.ydata)
                         data = self.parent.data_img[y,x,:].reshape(1,-1)
-                        line, = self.parent.axs[1].plot(self.parent.wavelengths, data[0] , label=f"Point ({x}, {y})", picker=True)
+                        line, = self.parent.axs[1].plot(self.parent.wavelengths, data[0] , label=f"Point ({x}, {y})")
 
                         self.parent.legend_obj.remove()  # Remove the previous legend
                         self.parent.legend_label.append(f"Point ({x}, {y})")
                         legend = PickableLegend(self.parent.axs[1], self.parent.axs[1].get_lines(), self.parent.legend_label)
-                        self.parent.graph_dict[legend.get_lines()[-1]] = line # Store the graph in the dictionary
                         self.parent.legend_obj = self.parent.axs[1].add_artist(legend)
                         # on récupere la ligne n°-1 (la derniere) de la légende du graphique de droite
                         
@@ -64,6 +63,7 @@ class CustomToolbar(NavigationToolbar):
 
 class PickableLegend(Legend):
     """Custom Legend that enables picking on legend items by default."""
+    # Store the original legend lines and their corresponding plot lines
     def __init__(self, parent_ax, *args, **kwargs):
         super().__init__(parent_ax, *args, **kwargs)
         self.parent_ax = parent_ax  # Store reference to the axes
@@ -75,8 +75,9 @@ class PickableLegend(Legend):
         """Enable picking for all legend lines."""
         for leg_line, orig_line in zip(self.get_lines(), self.parent_ax.get_lines()):
             leg_line.set_picker(True)  # Enable clicking on legend items
-            leg_line.set_pickradius(10)  # Make it easier to click
+            leg_line.set_pickradius(8)  # Make it easier to click
             leg_line.original_line = orig_line  # Store reference to the plot line
+        
 
 
 

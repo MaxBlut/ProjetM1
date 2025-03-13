@@ -28,11 +28,11 @@ class KMeansApp(QMainWindow):
         self.data_img = None
         self.first_cluster_map = None
         self.second_cluster_map = None
-        self.graph_dict = {} # Dictionary to store the graphs for toggling visibility and easy removal
         self.legend_obj = None
         self.legend_label = []
         self.init_ui()
     
+
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -83,6 +83,7 @@ class KMeansApp(QMainWindow):
         self.canvas.mpl_connect("button_press_event", self.on_click)
         self.canvas.mpl_connect("pick_event", self.on_pick)
     
+
     def load_file(self):
         self.file_path = None
         self.data_img = None
@@ -98,6 +99,7 @@ class KMeansApp(QMainWindow):
         self.display_image()
         self.canvas.draw()
     
+
     def display_image(self):
         if self.data_img is not None:
             self.axs[0].clear()
@@ -159,6 +161,7 @@ class KMeansApp(QMainWindow):
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
             # Store plotted lines
             plotted_lines = []
+            self.legend_label = []
             
             for i in np.unique(self.second_cluster_map):
                 mask = self.second_cluster_map == i
@@ -168,11 +171,10 @@ class KMeansApp(QMainWindow):
                 self.legend_label.append(f"Cluster {i}")
             # Create the legend **AFTER** plotting all lines
             legend = PickableLegend(self.axs[1], self.axs[1].get_lines(), self.legend_label)
+            print("legend : \n", legend)
             self.legend_obj = self.axs[1].add_artist(legend)
 
              # Store mapping of legend -> plot
-            for legend_line, plot_line in zip(legend.get_lines(), plotted_lines):
-                self.graph_dict[legend_line] = plot_line 
 
             self.canvas.draw()
 
@@ -188,20 +190,21 @@ class KMeansApp(QMainWindow):
                     self.first_cluster_map = 1 - self.first_cluster_map
                     self.second_cluster_map = None
 
+
     def on_pick(self, event):
         """Handles pick events to toggle visibility of spectra."""
         print("picked")
-        
+        print("event\n",event)
         legend = event.artist
         isVisible = legend.get_visible()
         # Toggle visibility of the corresponding plot
-        print("legende :" , legend)
-        print("self.graph_dict : ", self.graph_dict)
-        if legend in self.graph_dict:
-            print("in the if")
-            self.graph_dict[legend].set_visible(not isVisible)
-            legend.set_visible(not isVisible)
+        print("legende :\n" , legend)
 
+        for legend_obj, line_obj in zip(self.legend_obj.get_lines(),self.axs[1].get_lines()):
+            # print("obj :\n", obj)
+            if legend_obj == legend:
+                legend.set_visible(not isVisible)
+                line_obj.set_visible(not isVisible)
         self.canvas.draw()
 
 
