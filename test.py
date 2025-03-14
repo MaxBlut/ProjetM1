@@ -7,10 +7,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from PySide6.QtGui import QFont
 import main as m
-import spectral as sp
+
 # Désactiver le mode interactif de matplotlib
 plt.ioff()
-img = sp.open_image("feuille_250624_ref.hdr")  # Charger l'image hyperspectrale
 
 class MatplotlibImage(QWidget):
     def __init__(self, RGB_img):
@@ -118,7 +117,7 @@ class MatplotlibImage(QWidget):
             img_data = m.calcule_true_gray_opti(wavelength)
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array, cmap='gray')  # Affichage en niveaux de gris
-
+            
         elif  self.mode_combo.currentText() == "RGB":
             img_data = m.calcule_true_rgb_opti(wavelength)
             img_array = np.array(img_data, dtype=np.uint8)
@@ -282,10 +281,9 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         self.canvas.draw()
 
     def update_image(self):
-        wl_min = self.slider_min.value()
-        wl_max = self.slider_max.value()
-        self.label.setText(f"{wl_min} nm à {wl_max} nm")
-        img_data = m.calcule_rgb_plage(img, wl_min, wl_max)
+        wavelength = self.slider.value()
+        self.label.setText(f"Longueur d'onde : {wavelength} nm")
+        img_data = m.calcule_true_rgb_opti(wavelength)
         img_array = np.array(img_data, dtype=np.uint8)
         self.Img_ax.clear()
         self.Img_ax.imshow(img_array)
@@ -301,7 +299,7 @@ class MainWindow(QMainWindow):
 
         initial_image = np.zeros((100, 100, 3), dtype=np.uint8)  # Image en couleur par défaut
         self.matplotlib_widget_gris = MatplotlibImage_Gris(initial_image)
-        self.matplotlib_widget_rgb = MatplotlibImage(initial_image)
+        self.matplotlib_widget_rgb = MatplotlibImage_RGB(initial_image)
         self.matplotlib_widget_double = MatplotlibImage_DoubleCurseur(initial_image)
 
         self.tabs = QTabWidget()

@@ -119,10 +119,71 @@ def calcule_true_gray_opti(wl):
     return gray_img
 
 
+def calcule_rgb_plage2(wl_min, wl_max):
+    """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde."""
+    img = sp.open_image("feuille_250624_ref.hdr")  # Charger l'image hyperspectrale
+
+    # Obtenir les dimensions de l'image
+    nblines, nbcolones, nb_bandes = img.shape
+
+    # Initialiser l'image RGB avec des zéros
+    true_rgb_img = np.zeros((nblines, nbcolones, 3), dtype=np.float32)
+
+    # Calcul des indices des longueurs d'onde
+    for wl in range(wl_min, wl_max + 1, 2):  # On prend un pas de 2 pour suivre l'échantillonnage
+        k = round((wl - 400) / 2)  # Calcul de l'indice correspondant à la bande
+        if 0 <= k < nb_bandes:
+            reflectance = img.read_band(k)  # Lecture de la bande k
+            r, g, b = nmToRGB(wl)  # Conversion de la longueur d'onde en RGB
+            true_rgb_img[:, :, 0] += r * reflectance
+            true_rgb_img[:, :, 1] += g * reflectance
+            true_rgb_img[:, :, 2] += b * reflectance
+    # print(true_rgb_img.min())
+    # print(true_rgb_img.max())
+
+    true_rgb_img -= true_rgb_img.min()  # Ramène le minimum à 0
+    true_rgb_img /= true_rgb_img.max()  # Normalisation entre 0 et 1
+    true_rgb_img *= 255
+
+    return true_rgb_img.astype(np.uint8)  # Convertir en entiers 8 bits pour l'affichage
+
+def calcule_rgb_plage(img, wl_min, wl_max):
+    """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde de manière optimisée."""
+    
+    nblines, nbcolones, nb_bandes = img.shape
+
+    # Calculer les indices des longueurs d'onde
+    indices = [(wl, round((wl - 400) / 2)) for wl in range(wl_min, wl_max + 1, 2)]
+    indices = [(wl, k) for wl, k in indices if 0 <= k < nb_bandes]
+
+    if not indices:
+        print("Aucune longueur d'onde valide dans la plage donnée.")
+        return None
+
+    # Initialiser les matrices RGB
+    true_rgb_img = np.zeros((nblines, nbcolones, 3), dtype=np.float32)
+
+    # Charger toutes les bandes en une seule fois pour accélérer la lecture
+    all_bands = np.array([img.read_band(k) for _, k in indices])
+
+    # Calcul des poids RGB
+    rgb_weights = np.array([nmToRGB(wl) for wl, _ in indices])
+
+    # Appliquer les poids RGB via un produit matriciel
+    true_rgb_img[:, :, 0] = np.tensordot(all_bands, rgb_weights[:, 0], axes=(0, 0))
+    true_rgb_img[:, :, 1] = np.tensordot(all_bands, rgb_weights[:, 1], axes=(0, 0))
+    true_rgb_img[:, :, 2] = np.tensordot(all_bands, rgb_weights[:, 2], axes=(0, 0))
+
+    # Normalisation
+    true_rgb_img -= true_rgb_img.min()
+    true_rgb_img /= true_rgb_img.max()
+    true_rgb_img *= 255
+
+    return true_rgb_img.astype(np.uint8)
 
 def main():
     img = calcule_true_rgb_opti(550)
-
+    #img2 = calcule_rgb_plage(400, 700)
     # # Conversion de la liste en un tableau NumPy
     # array = np.array(img, dtype=np.uint8)
 
@@ -143,5 +204,5 @@ def main():
 
     return 0
 
-print(main())
+#print(main())
 
