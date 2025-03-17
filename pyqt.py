@@ -250,10 +250,13 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5), tight_layout=True)
         self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
         # Calcul initial du spectre global
-        self.img_band = self.img.read_band(0)
-        np.array(self.img_band, dtype=np.float32)
-        self.spectrum_x, self.spectrum_y =  np.mean(self.img_band, axis=(0, 1))  
-        self.update_spectrum()
+        self.spectrum_x = np.array([i for i in range(self.img.shape[2])])  # Longueurs d'onde (indices de bandes)
+
+        self.img_s = np.array(self.img.load())  # ✅ Convertit en numpy.ndarray
+
+        print(f"Type après .load(): {type(self.img)}")
+        print(f"Shape après .load(): {self.img.shape}")  # Doit être (608, 968, 299)
+        self.spectrum_y = np.mean(self.img_s, axis=(0, 1))  # Moyenne des pixels par bande
 
 
         main_layout = QHBoxLayout()
@@ -284,7 +287,10 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         wl_min = self.slider_min.value()
         wl_max = self.slider_max.value()
         mask = (self.spectrum_x >= wl_min) & (self.spectrum_x <= wl_max)
-        
+        print(f"spectrum_x: {self.spectrum_x}")
+        print(f"spectrum_y: {self.spectrum_y}")
+        print(f"mask: {mask}")
+
         self.spectrum_ax.clear()
         self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='white')
