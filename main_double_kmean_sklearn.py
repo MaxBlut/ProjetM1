@@ -29,7 +29,6 @@ class KMeansApp(QMainWindow):
         self.first_cluster_map = None
         self.second_cluster_map = None
         self.legend_obj = None
-        self.legend_label = []
         self.init_ui()
     
 
@@ -81,7 +80,6 @@ class KMeansApp(QMainWindow):
         self.btn_second_kmean.clicked.connect(self.apply_second_kmean)
         self.btn_spectra.clicked.connect(self.display_spectra)
         self.canvas.mpl_connect("button_press_event", self.on_click)
-        self.canvas.mpl_connect("pick_event", self.on_pick)
     
 
     def load_file(self):
@@ -161,23 +159,20 @@ class KMeansApp(QMainWindow):
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
             # Store plotted lines
             plotted_lines = []
-            self.legend_label = []
             
             for i in np.unique(self.second_cluster_map):
                 mask = self.second_cluster_map == i
                 avg_spectrum = np.mean(self.data_img[mask, :], axis=0)
                 line, = self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
                 plotted_lines.append(line)
-                self.legend_label.append(f"Cluster {i}")
             # Create the legend **AFTER** plotting all lines
-            legend = PickableLegend(self.axs[1], self.axs[1].get_lines(), self.legend_label)
-            print("legend : \n", legend)
+            _, labels = self.axs[1].get_legend_handles_labels()
+            legend = PickableLegend(self.axs[1], self.canvas, self.axs[1].get_lines(), labels)
             self.legend_obj = self.axs[1].add_artist(legend)
 
              # Store mapping of legend -> plot
 
             self.canvas.draw()
-
 
     def on_click(self, event):
         """Handles mouse clicks on the left graph to get pixel coordinates."""
@@ -190,22 +185,6 @@ class KMeansApp(QMainWindow):
                     self.first_cluster_map = 1 - self.first_cluster_map
                     self.second_cluster_map = None
 
-
-    def on_pick(self, event):
-        """Handles pick events to toggle visibility of spectra."""
-        print("picked")
-        print("event\n",event)
-        legend = event.artist
-        isVisible = legend.get_visible()
-        # Toggle visibility of the corresponding plot
-        print("legende :\n" , legend)
-
-        for legend_obj, line_obj in zip(self.legend_obj.get_lines(),self.axs[1].get_lines()):
-            # print("obj :\n", obj)
-            if legend_obj == legend:
-                legend.set_visible(not isVisible)
-                line_obj.set_visible(not isVisible)
-        self.canvas.draw()
 
 
 if __name__ == "__main__":
