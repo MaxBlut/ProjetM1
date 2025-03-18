@@ -1,56 +1,100 @@
+import sys
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QToolButton, QButtonGroup
+from PySide6.QtGui import QIcon
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import Button
-from tkinter import messagebox
 
-class PickableLegend:
-    def __init__(self, ax, canvas, lines, labels):
-        self.ax = ax
-        self.canvas = canvas
-        self.lines = lines
-        self.labels = labels
-        self.legend = ax.legend(lines, labels, loc='upper right', fancybox=True, shadow=True, picker=True)
-        self.visibility = {line: True for line in lines}  # Track line visibility
-        self.canvas.mpl_connect("pick_event", self.on_pick)
-    
-    def on_pick(self, event):
-        legend_item = event.artist
-        if isinstance(legend_item, plt.Line2D):
-            index = self.labels.index(legend_item.get_label())
-            line = self.lines[index]
-            
-            if event.mouseevent.button == 1:  # Left-click toggles visibility
-                visible = not self.visibility[line]
-                line.set_visible(visible)
-                self.visibility[line] = visible
-                legend_item.set_alpha(1.0 if visible else 0.2)  # Dim legend item if hidden
-                self.canvas.draw()
-            
-            elif event.mouseevent.button == 3:  # Right-click opens deletion prompt
-                if messagebox.askyesno("Delete Line", f"Do you want to delete {legend_item.get_label()}?"):
-                    line.remove()
-                    self.lines.pop(index)
-                    self.labels.pop(index)
-                    self.legend.remove()
-                    self.legend = self.ax.legend(self.lines, self.labels, loc='upper right', fancybox=True, shadow=True, picker=True)
-                    self.canvas.draw()
 
-def display_spectra(self):
-    if self.data_img is not None and self.second_cluster_map is not None:
-        self.axs[1].clear()
-        self.graph_dict = {}
-        cmap = plt.get_cmap("nipy_spectral")
-        norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
-        plotted_lines = []
-        labels = []
+class CustomToolbar(NavigationToolbar):
+    """Custom Matplotlib Toolbar with Two Toggle Buttons (Can Be Unchecked)"""
+    def __init__(self, canvas, ax, parent=None):
+        super().__init__(canvas, parent)
 
-        for i in np.unique(self.second_cluster_map):
-            mask = self.second_cluster_map == i
-            avg_spectrum = np.mean(self.data_img[mask, :], axis=0)
-            line, = self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
-            plotted_lines.append(line)
-            labels.append(f"Cluster {i}")
+        self.ax = ax  # Store reference to axes
 
-        legend = PickableLegend(self.axs[1], self.canvas, plotted_lines, labels)
-        self.legend_obj = self.axs[1].add_artist(legend)
-        self.canvas.draw()
+        # Create Toggle Buttons
+        self.grid_button = QToolButton(self)
+        self.grid_button.setCheckable(True)
+        self.grid_button.setIcon(QIcon("grid_icon.png"))  # Replace with your image
+        self.grid_button.setToolTip("Toggle Grid")
+        self.grid_button.clicked.connect(self.toggle_grid)
+
+        self.dark_mode_button = QToolButton(self)
+        self.dark_mode_button.setCheckable(True)
+        self.dark_mode_button.setIcon(QIcon("dark_mode_icon.png"))  # Replace with your image
+        self.dark_mode_button.setToolTip("Toggle Dark Mode")
+        self.dark_mode_button.clicked.connect(self.toggle_dark_mode)
+
+        # Button Group (Allow Manual Unchecking)
+        self.button_group = QButtonGroup(self)
+        self.button_group.setExclusive(False)  # Allows unchecking
+        self.button_group.addButton(self.grid_button)
+        self.button_group.addButton(self.dark_mode_button)
+
+        # Insert buttons on the LEFT side of the toolbar
+        self.insertWidget(self.actions()[0], self.grid_button)
+        self.insertWidget(self.actions()[0], self.dark_mode_button)
+
+    def toggle_grid(self):
+        """Toggle the grid ON/OFF"""
+        if self.grid_button.isChecked():
+            self.ax.grid(True)  # Enable grid
+            self.dark_mode_button.setChecked(False)  # Turn off dark mode
+
+        else:
+            self.ax.grid(False)  # Disable grid
+        self.ax.figure.canvas.draw()
+
+    def toggle_dark_mode(self):
+        """Toggle dark mode ON/OFF"""
+        if self.dark_mode_button.isChecked():
+            self.ax.set_facecolor("#333333")  # Dark background
+            self.grid_button.setChecked(False)  # Turn off grid
+        else:
+            self.ax.set_facecolor("white")  # Reset background color
+        self.ax.figure.canvas.draw()
+
+
+class MatplotlibWidget(QWidget):
+    """Main widget containing the Matplotlib figure and custom toolbar"""
+    def __init__(self):
+        super().__init__()
+
+        # Create figure and canvas
+        self.figure, self.ax = plt.subplots()
+        self.canvas = FigureCanvas(self.figure)
+
+        # Custom Matplotlib toolbar (pass ax reference)
+        self.toolbar = CustomToolbar(self.canvas, self.ax, self)
+
+        # Example plot
+        x = np.linspace(0, 10, 100)
+        y = np.sin(x)
+        self.ax.plot(x, y, label="Sine Wave")
+        self.ax.legend()
+
+        # Layout
+        layout = QVBoxLayout()
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.canvas)
+        self.setLayout(layout)
+
+
+class MainWindow(QMainWindow):
+    """Main PyQt Application Window"""
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Toggle Buttons in Matplotlib Toolbar")
+
+        # Set main widget
+        self.matplotlib_widget = MatplotlibWidget()
+        self.setCentralWidget(self.matplotlib_widget)
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())

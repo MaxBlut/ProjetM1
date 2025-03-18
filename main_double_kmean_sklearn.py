@@ -12,12 +12,23 @@ from PySide6.QtWidgets import (
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
-from CustomElement import CustomToolbar, PickableLegend 
+from CustomElement import CustomToolbar, PickableLegend, CustomCanvas
+from utiles import mean_spectre_of_cluster
 
 import os
 os.environ['OMP_NUM_THREADS'] = '4' 
 np.random.seed(42)
 sp.settings.envi_support_nonlowercase_params = True
+
+
+
+
+
+
+
+
+
+
 
 class KMeansApp(QMainWindow):
     def __init__(self):
@@ -30,7 +41,7 @@ class KMeansApp(QMainWindow):
         self.second_cluster_map = None
         self.legend_obj = None
         self.init_ui()
-    
+        
 
     def init_ui(self):
         central_widget = QWidget()
@@ -49,16 +60,17 @@ class KMeansApp(QMainWindow):
         # Matplotlib Figure
         self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10))
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
-        self.canvas = FigureCanvas(self.figure)
+        self.canvas = CustomCanvas(self.figure, self.axs[1])
         layout.addWidget(CustomToolbar(self.canvas, self))
         layout.addWidget(self.canvas)
         
-        # Buttons
-        btn_layout = QHBoxLayout()
+        # Buttons 
+        btn_layout = QHBoxLayout(self)
         self.btn_show_image = QPushButton("Afficher Image")
         self.btn_first_kmean = QPushButton("Premier K-Means")
         self.btn_second_kmean = QPushButton("Deuxième K-Means")
         self.btn_spectra = QPushButton("Spectres Moyens")
+        
         
         btn_layout.addWidget(self.btn_show_image)
         btn_layout.addWidget(self.btn_first_kmean)
@@ -79,6 +91,8 @@ class KMeansApp(QMainWindow):
         self.btn_first_kmean.clicked.connect(self.apply_first_kmean)
         self.btn_second_kmean.clicked.connect(self.apply_second_kmean)
         self.btn_spectra.clicked.connect(self.display_spectra)
+
+        # self.canvas.mpl_connect("draw_event", self.update_legend) # emet un signal lorsque le canvas est updaté
         self.canvas.mpl_connect("button_press_event", self.on_click)
     
 
@@ -106,6 +120,7 @@ class KMeansApp(QMainWindow):
             G = round((550-wlMin)/2)
             B = round((450-wlMin)/2)
             RGB_img = self.data_img[:,:,(R,G,B)]
+
             if RGB_img.max()*2 < 1:
                 try:
                     RGB_img = 2*RGB_img
@@ -158,21 +173,14 @@ class KMeansApp(QMainWindow):
             cmap = plt.get_cmap("nipy_spectral")
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
             # Store plotted lines
-            plotted_lines = []
             
             for i in np.unique(self.second_cluster_map):
-                mask = self.second_cluster_map == i
-                avg_spectrum = np.mean(self.data_img[mask, :], axis=0)
-                line, = self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
-                plotted_lines.append(line)
+                avg_spectrum = mean_spectre_of_cluster(self.second_cluster_map, self.data_img, selected_cluster_value=i)
+                self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
             # Create the legend **AFTER** plotting all lines
-            _, labels = self.axs[1].get_legend_handles_labels()
-            legend = PickableLegend(self.axs[1], self.canvas, self.axs[1].get_lines(), labels)
-            self.legend_obj = self.axs[1].add_artist(legend)
-
-             # Store mapping of legend -> plot
-
             self.canvas.draw()
+
+            
 
     def on_click(self, event):
         """Handles mouse clicks on the left graph to get pixel coordinates."""
@@ -185,6 +193,8 @@ class KMeansApp(QMainWindow):
                     self.first_cluster_map = 1 - self.first_cluster_map
                     self.second_cluster_map = None
 
+
+    
 
 
 if __name__ == "__main__":

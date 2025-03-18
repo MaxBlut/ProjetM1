@@ -46,9 +46,6 @@ def mean_spectre_of_cluster(cluster_map, data, selected_cluster_value=1):
     #     cluster_map: 2D array of cluster labels.
     #     data: 3D array of hyperspectral data.
     #     selected_cluster_value: Value of the cluster to analyze.
-    data = data[cluster_map == selected_cluster_value,:]
-    nband = data.shape[1]  # Nombre de bandes spectrales
-    moyenne = np.zeros(nband)  # Initialise la moyenne avec des zéros
-    for j in range(nband):
-        moyenne[j] = np.mean(data[:, j])  # Moyenne pour chaque bande spectral
-    return moyenne
+    mask = cluster_map == selected_cluster_value
+    avg_spectrum = np.mean(data[mask, :], axis=0)
+    return avg_spectrum
