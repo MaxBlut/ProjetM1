@@ -115,15 +115,7 @@ class CustomToolbar(NavigationToolbar):
                         x, y = int(event.xdata), int(event.ydata)
                         data = self.parent.data_img[y,x,:].reshape(1,-1)
                         self.parent.axs[1].plot(self.parent.wavelengths, data[0] , label=f"Point ({x}, {y})")
-
-                        if self.parent.legend_obj is not None:
-                            self.parent.legend_obj.remove()  # Remove the previous legend
-                        _, labels = self.parent.axs[1].get_legend_handles_labels()
-                        legend = PickableLegend(self.parent.axs[1],self.parent.canvas, self.parent.axs[1].get_lines(), labels)
-                        self.parent.legend_obj = self.parent.axs[1].add_artist(legend)
-                        # on récupere la ligne n°-1 (la derniere) de la légende du graphique de droite
-                        
-                        self.parent.canvas.draw()  # Update the figure
+                        self.parent.canvas.draw("legend")  # Update the figure
 
 
         # Check if the pen button is checked
@@ -143,7 +135,7 @@ class CustomToolbar(NavigationToolbar):
                             self.overlay.remove()
                             self.overlay = None
                             self.selected_pixels_map[:,:] = False
-                            self.parent.canvas.draw()
+                            self.parent.canvas.draw("legend")
 
                     elif event.button == 3: # clic droit
                         self.right_mouse_pressed = True
@@ -162,10 +154,6 @@ class CustomToolbar(NavigationToolbar):
             x = np.array((x,x,x+1,x+1))
             y = np.array((y,y+1,y,y+1))
             self.selected_pixels_map[y,x] = False
-            
-
-            
-            
             
 
     def on_mouse_release(self, event):
@@ -225,8 +213,11 @@ class PickableLegend(Legend):
         # Enable picking for all legend items
         self._enable_picking()
 
-        if not hasattr(self.parent_canvas, "_pick_event_id"):
-            self.parent_canvas._pick_event_id = self.parent_canvas.mpl_connect("pick_event", self.on_pick)
+        
+        self.parent_canvas._pick_event_id = self.parent_canvas.mpl_connect("pick_event", self.on_pick)
+
+
+        # self.parent_canvas.mpl_connect("pick_event", self.on_pick)
 
 
     def _enable_picking(self):
@@ -240,9 +231,7 @@ class PickableLegend(Legend):
 
         if not isinstance(event.artist, plt.Line2D):  # Ignore text & non-line elements
             return
-
-        print("picked")
-
+        
         legend = event.artist
         isVisible = legend.get_visible()
 
@@ -259,7 +248,20 @@ class PickableLegend(Legend):
                 if legend_obj == legend:
                     if messagebox.askyesno("Delete Line", f"Do you want to delete {legend.get_label()}?"):
                         line_obj.remove()
-            self.parent_canvas.draw()
+            self.parent_canvas.draw("legend")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -276,24 +278,33 @@ class CustomCanvas(FigureCanvas):
         super().__init__(figure)
         self.parent_ax = parent_ax
         self.parent_legend_obj = None
+        self._pick_event_id = None
 
-    def draw(self):
+
+    def draw(self, what = None):
         """Overrides Matplotlib's draw method to execute custom code before drawing."""
-        self.update_legend()  # Execute custom function
+        if what == "legend":
+            self.update_legend()  # Execute custom function
         super().draw()  # Proceed with the normal drawing
 
 
     def update_legend(self):
-        print("update")
-
-        _, labels = self.parent_ax.get_legend_handles_labels()
-        # if len(labels) == 0:
-        #     return  # No legend needed
+        """Updates the legend without re-adding pick events multiple times."""
+        print("Updating legend...")
         
+        # Only remove and recreate the legend if something changed
+        _, labels = self.parent_ax.get_legend_handles_labels()
+        # Check if legend already exists
         if self.parent_legend_obj is not None:
+            print("removing old legend")
+            for leg_line in self.parent_legend_obj.get_lines():
+                leg_line.set_picker(False)  # disable clicking on legend items
+            self.mpl_disconnect(self._pick_event_id)
             self.parent_legend_obj.remove()
             self.parent_legend_obj = None
 
-        if len(labels) >0:
-            legend = PickableLegend(self.parent_ax, self, self.parent_ax.get_lines(), labels)
-            self.parent_legend_obj = self.parent_ax.add_artist(legend)
+        # Create and add the new legend
+        if len(labels)>0:
+            self.parent_legend_obj = PickableLegend(self.parent_ax, self, self.parent_ax.get_lines(), labels)
+            self.parent_ax.add_artist(self.parent_legend_obj)
+        

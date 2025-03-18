@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
-from CustomElement import CustomToolbar, PickableLegend, CustomCanvas
+from CustomElement import CustomToolbar, CustomCanvas
 from utiles import mean_spectre_of_cluster
 
 import os
@@ -39,7 +39,6 @@ class KMeansApp(QMainWindow):
         self.data_img = None
         self.first_cluster_map = None
         self.second_cluster_map = None
-        self.legend_obj = None
         self.init_ui()
         
 
@@ -178,7 +177,7 @@ class KMeansApp(QMainWindow):
                 avg_spectrum = mean_spectre_of_cluster(self.second_cluster_map, self.data_img, selected_cluster_value=i)
                 self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
             # Create the legend **AFTER** plotting all lines
-            self.canvas.draw()
+            self.canvas.draw("legend")
 
             
 
