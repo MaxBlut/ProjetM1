@@ -6,6 +6,8 @@ from PySide6.QtCore import Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from PySide6.QtGui import QFont
+from qtrangeslider import QLabeledRangeSlider, QDoubleSlider
+from superqt import QRangeSlider, QLabeledSlider, QDoubleSlider
 import main as m
 import spectral as sp
 
@@ -135,11 +137,17 @@ class MatplotlibImage(QWidget):
             }
         """)
 
+
+        self.double_slider = QLabeledRangeSlider(Qt.Horizontal)
+        self.double_slider.setValue((20, 60))
+
+
         right_layout = QVBoxLayout()
         right_layout.addStretch()  # Ajoute un espace flexible en haut
         right_layout.addWidget(self.choix_label)
         right_layout.addWidget(self.mode_combo)
         right_layout.addWidget(self.save_button)
+        right_layout.addWidget(self.double_slider)
         right_layout.addStretch()  # Ajoute un espace flexible en bas
 
         # Disposition globale : Image + contrôles à gauche | Mode combo & sauvegarde à droite
