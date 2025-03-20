@@ -2,15 +2,21 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFrame
-from PySide6.QtCore import Qt
+#from PySide6.QtCore import Qt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from PySide6.QtGui import QFont
-from qtrangeslider import QLabeledRangeSlider, QDoubleSlider
-from superqt import QRangeSlider, QLabeledSlider, QDoubleSlider
+#from qtrangeslider import QLabeledRangeSlider, QDoubleSlider
+from superqt import QRangeSlider, QLabeledSlider
 import main as m
 import spectral as sp
-
+from qtrangeslider._labeled import (
+    QLabeledDoubleRangeSlider,
+    QLabeledDoubleSlider,
+    QLabeledRangeSlider,
+    QLabeledSlider,
+)
+from qtrangeslider.qtcompat.QtCore import Qt
 
 # Désactiver le mode interactif de matplotlib
 plt.ioff()
@@ -140,6 +146,11 @@ class MatplotlibImage(QWidget):
 
         self.double_slider = QLabeledRangeSlider(Qt.Horizontal)
         self.double_slider.setValue((20, 60))
+        print(self.double_slider.value())
+
+        # self.label = QLabel(self.get_slider_values(), self)
+        # # Connecter le signal de changement de valeur
+        # self.range_slider.valueChanged.connect(self.on_value_changed)
 
 
         right_layout = QVBoxLayout()
@@ -228,7 +239,7 @@ class MatplotlibImage(QWidget):
             self.canvas.draw()
 
         
-class MatplotlibImage_DoubleCurseur(QWidget):
+class MatplotlibImage_DoubleCurseur2(QWidget):
     def __init__(self, RGB_img):
         super().__init__()
         self.img = sp.open_image("feuille_250624_ref.hdr")  # Charger l'image hyperspectrale
@@ -355,6 +366,202 @@ class MatplotlibImage_DoubleCurseur(QWidget):
             self.spectrum_figure.tight_layout()
             self.spectrum_canvas.draw()
             
+class MatplotlibImage_DoubleCurseur(QWidget):
+    def __init__(self, RGB_img):
+        super().__init__()
+        self.img = sp.open_image("feuille_250624_ref.hdr")  # Charger l'image hyperspectrale
+        if self.img is None or len(self.img.shape) != 3:
+            raise ValueError("L'image hyperspectrale n'a pas été chargée correctement !")
+        self.setStyleSheet("background-color: #2E2E2E;")
+        
+        self.figure, self.Img_ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+        self.canvas = FigureCanvas(self.figure)
+        self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        self.Img_ax.set_position([0, 0, 1, 1])
+        self.figure.patch.set_facecolor('#2E2E2E')
+
+        toolbar = NavigationToolbar(self.canvas, self)
+        toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
+        for action in toolbar.actions():
+            if action.text() in ["Home", "Customize"]:
+                toolbar.removeAction(action)
+
+        self.slider_double = QRangeSlider(Qt.Horizontal)
+        self.slider_double.setRange(402, 998)
+
+        self.slider_double.setValue((520, 720))
+        self.slider_double.setStyleSheet("""
+            QRangeSlider {
+                border: 0px;
+                padding: 0px;
+                background: #FFFFFF;  /* Fond blanc */
+            }
+            QRangeSlider #Head {
+                background: #FF5733;  /* Poignée gauche rouge */
+            }
+            QRangeSlider #Tail {
+                background: #33B5FF;  /* Poignée droite bleue */
+            }
+            QRangeSlider #Span {
+                background: #999999;  /* Partie entre les poignées gris */
+            }
+            QRangeSlider #Span:active {
+                background: #777777;  /* Partie entre les poignées enfoncée */
+            }
+            QRangeSlider > QSplitter::handle {
+                background: #555555;  /* Couleur de la poignée (gris) */
+            }
+            QRangeSlider > QSplitter::handle:pressed {
+                background: #FF5733;  /* Poignée enfoncée orange */
+            }
+            QSlider::groove:horizontal {
+                background: #FFFFFF;  /* Couleur de la piste (blanc) */
+                height: 10px;
+                border-radius: 5px;
+            }
+            QSlider::handle:horizontal {
+                background: #FFFFFF;  /* Couleur des poignées (blanc) par défaut */
+                border: 2px solid #FFFFFF;  /* Bordure blanche */
+                width: 20px;
+                height: 20px;
+                margin: -6px 0;
+                border-radius: 10px;
+            }
+            /* Poignée gauche */
+            QRangeSlider::handle {
+                background: #FF5733;  /* Poignée gauche rouge */
+                border-radius: 10px;
+                width: 20px;
+                height: 20px;
+            }
+            /* Poignée droite */
+            QRangeSlider::handle:after {
+                background: #33B5FF;  /* Poignée droite bleue */
+                border-radius: 10px;
+                width: 20px;
+                height: 20px;
+            }
+            /* Poignée enfoncée gauche */
+            QRangeSlider::handle:pressed {
+                background: #FF3500;  /* Poignée gauche enfoncée orange */
+            }
+            /* Poignée enfoncée droite */
+            QRangeSlider::handle:pressed:after {
+                background: #0066CC;  /* Poignée droite enfoncée bleue foncée */
+            }
+        """)
+
+
+        self.slider_double.show()
+        self.slider_double.valueChanged.connect(self.update_slid_text)
+        #self.slider_double.valueChanged.connect(self.update_image)  # Connecter à sliderReleased
+        #self.slider_double.valueChanged.connect(self.update_spectre)
+
+        # #SLIDER MIN ET MAX
+        # self.slider_min = QSlider(Qt.Horizontal)
+        # self.slider_min.setRange(402, 998)
+        # self.slider_min.setTickPosition(QSlider.TicksBelow)
+        # self.slider_min.setTickInterval(2)
+        # self.slider_min.setSingleStep(2)
+        # self.slider_min.valueChanged.connect(self.update_slid_text)
+        # self.slider_min.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
+        # self.slider_min.sliderReleased.connect(self.update_spectre)
+        
+        # self.slider_max = QSlider(Qt.Horizontal)
+        # self.slider_max.setRange(402, 998)
+        # self.slider_max.setTickPosition(QSlider.TicksBelow)
+        # self.slider_max.setTickInterval(2)
+        # self.slider_max.setSingleStep(2)
+        # self.slider_max.valueChanged.connect(self.update_slid_text)
+        # self.slider_max.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
+        # self.slider_max.sliderReleased.connect(self.update_spectre)
+
+        #LABELS---------------------------------------------
+        font = QFont("Verdana", 20, QFont.Bold)
+        self.label = QLabel("Saisir une plage de longeur d'onde")
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet("color: white; font-size: 30px;")
+        self.label.setFont(font)
+        
+        # self.left_label = QLabel("402 nm")
+        # self.left_label.setStyleSheet("color: white; font-size: 20px;")
+        # self.right_label = QLabel("998 nm")
+        # self.right_label.setStyleSheet("color: white; font-size: 20px;")
+
+        #LAYOUTS---------------------------------------------
+        slider_layout = QVBoxLayout()
+        slider_layout.addWidget(self.slider_double)
+        # slider_layout.addWidget(self.slider_min)
+        # slider_layout.addWidget(self.slider_max)
+
+        img_layout = QVBoxLayout()
+        img_layout.addWidget(toolbar)
+        img_layout.addWidget(self.canvas)
+        img_layout.addLayout(slider_layout)
+        img_layout.addWidget(self.label)
+
+        #SPECTRE---------------------------------------------
+        self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
+        self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
+        self.spectrum_ax.set_ylabel("Intensité", color='black')
+        self.spectrum_ax.set_xlim(402, 998)
+        self.spectrum_ax.tick_params(axis='x', colors='black')
+        self.spectrum_ax.tick_params(axis='y', colors='black')
+        # Calcul initial du spectre global
+        self.spectrum_x = self.img.metadata['wavelength']
+        self.spectrum_x = np.array(self.spectrum_x)
+        self.spectrum_x = self.spectrum_x.astype(float)
+
+        self.img_s = np.array(self.img.load())  # ✅ Convertit en numpy.ndarray
+
+        print(f"Type après .load(): {type(self.img_s)}")
+        print(f"Shape après .load(): {self.img_s.shape}")  # Doit être (608, 968, 299)
+        self.spectrum_y = np.mean(self.img_s, axis=(0,1))  # Moyenne des pixels par bande
+        self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
+
+
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(img_layout, 1)
+        main_layout.addWidget(self.spectrum_canvas, 1)
+
+        self.setLayout(main_layout)
+        self.Img_ax.imshow(RGB_img)
+        self.Img_ax.axis('off')
+        self.canvas.draw()
+
+    def update_slid_text(self):
+        wl_min,wl_max = self.slider_double.value()
+        self.label.setText(f"{wl_min} nm à {wl_max} nm")
+
+    def update_image(self):
+        wl_min,wl_max = self.slider_double.value()
+        img_data = m.calcule_rgb_plage(self.img, wl_min, wl_max)
+        img_array = np.array(img_data, dtype=np.uint8)
+        self.Img_ax.clear()
+        self.Img_ax.imshow(img_array)
+        self.Img_ax.axis('off')
+        self.canvas.draw()
+    
+    def update_spectre(self):
+        wl_min,wl_max = self.slider_double.value()
+        print("je suis la ")
+        k_min = round((wl_min - 400) / 2)
+        k_max = round((wl_max - 400) / 2)
+        if wl_min < wl_max: 
+            #mask = (self.spectrum_x >= wl_min) & (self.spectrum_x <= wl_max)
+            #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
+            self.spectrum_ax.plot(self.spectrum_x[k_min:k_max], self.spectrum_y[k_min:k_max], color='cyan')
+                       
+
+            #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
+            self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
+            self.spectrum_ax.set_ylabel("Intensité", color='black')
+            self.spectrum_ax.set_xlim(wl_min, wl_max)
+            self.spectrum_ax.tick_params(axis='x', colors='black')
+            self.spectrum_ax.tick_params(axis='y', colors='black')
+            self.spectrum_figure.tight_layout()
+            self.spectrum_canvas.draw()
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
