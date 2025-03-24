@@ -1,331 +1,129 @@
-import sys
-import numpy as np
-import matplotlib.pyplot as plt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox
-from PySide6.QtCore import Qt
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
-from PySide6.QtGui import QFont
-import main as m
+import os
 
-# Désactiver le mode interactif de matplotlib
-plt.ioff()
+from qtpy import QtCore
+from qtpy import QtWidgets as QtW
 
-class MatplotlibImage(QWidget):
-    def __init__(self, RGB_img):
+# patch for Qt 5.15 on macos >= 12
+os.environ["USE_MAC_SLIDER_PATCH"] = "1"
+
+from superqt import QRangeSlider  # noqa
+
+QSS = """
+QSlider {
+    min-height: 20px;
+}
+
+QSlider::groove:horizontal {
+    border: 0px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #888, stop:1 #ddd);
+    height: 20px;
+    border-radius: 10px;
+}
+
+QSlider::handle {
+    background: qradialgradient(cx:0, cy:0, radius: 1.2, fx:0.35,
+                                fy:0.3, stop:0 #eef, stop:1 #002);
+    height: 20px;
+    width: 20px;
+    border-radius: 10px;
+}
+
+QSlider::sub-page:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #227, stop:1 #77a);
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+QRangeSlider {
+    qproperty-barColor: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #227, stop:1 #77a);
+}
+"""
+
+Horizontal = QtCore.Qt.Orientation.Horizontal
+
+
+class DemoWidget(QtW.QWidget):
+    def __init__(self) -> None:
         super().__init__()
-        self.setStyleSheet("background-color: #2E2E2E;")
-        self.figure, self.Img_ax = plt.subplots(figsize=(10, 10), tight_layout=True)
-        self.canvas = FigureCanvas(self.figure)
-        self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        self.Img_ax.set_position([0, 0, 1, 1])
-        self.figure.patch.set_facecolor('#2E2E2E')
 
-        toolbar = NavigationToolbar(self.canvas, self)
-        toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
-        for action in toolbar.actions():
-            if action.text() in ["Home", "Customize"]:
-                toolbar.removeAction(action)
+        reg_hslider = QtW.QSlider(Horizontal)
+        reg_hslider.setValue(50)
+        range_hslider = QRangeSlider(Horizontal)
+        range_hslider.setValue((20, 80))
+        multi_range_hslider = QRangeSlider(Horizontal)
+        multi_range_hslider.setValue((11, 33, 66, 88))
+        multi_range_hslider.setTickPosition(QtW.QSlider.TickPosition.TicksAbove)
 
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setRange(402, 998)
-        self.slider.setTickPosition(QSlider.TicksBelow)
-        self.slider.setTickInterval(2)
-        self.slider.setSingleStep(2)
-        self.slider.valueChanged.connect(self.update_image)
+        styled_reg_hslider = QtW.QSlider(Horizontal)
+        styled_reg_hslider.setValue(50)
+        styled_reg_hslider.setStyleSheet(QSS)
+        styled_range_hslider = QRangeSlider(Horizontal)
+        styled_range_hslider.setValue((20, 80))
+        styled_range_hslider.setStyleSheet(QSS)
 
-        font = QFont("Verdana", 20, QFont.Bold)
-        self.label = QLabel("Longueur d'onde : 0 nm")
-        self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("color: white; font-size: 30px;")
-        self.label.setFont(font)
+        reg_vslider = QtW.QSlider(QtCore.Qt.Orientation.Vertical)
+        reg_vslider.setValue(50)
+        range_vslider = QRangeSlider(QtCore.Qt.Orientation.Vertical)
+        range_vslider.setValue((22, 77))
 
-        self.left_label = QLabel("402 nm")
-        self.left_label.setStyleSheet("color: white; font-size: 20px;")
-        self.right_label = QLabel("998 nm")
-        self.right_label.setStyleSheet("color: white; font-size: 20px;")
+        tick_vslider = QtW.QSlider(QtCore.Qt.Orientation.Vertical)
+        tick_vslider.setValue(55)
+        tick_vslider.setTickPosition(QtW.QSlider.TicksRight)
+        range_tick_vslider = QRangeSlider(QtCore.Qt.Orientation.Vertical)
+        range_tick_vslider.setValue((22, 77))
+        range_tick_vslider.setTickPosition(QtW.QSlider.TicksLeft)
 
-        # Création d'un menu déroulant pour sélectionner le mode d'affichage
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItem("Couleur")
-        self.mode_combo.addItem("Gris")
-        self.mode_combo.addItem("RGB")
-        self.mode_combo.currentIndexChanged.connect(self.update_image)
+        szp = QtW.QSizePolicy.Maximum
+        left = QtW.QWidget()
+        left.setLayout(QtW.QVBoxLayout())
+        left.setContentsMargins(2, 2, 2, 2)
+        label1 = QtW.QLabel("Regular QSlider Unstyled")
+        label2 = QtW.QLabel("QRangeSliders Unstyled")
+        label3 = QtW.QLabel("Styled Sliders (using same stylesheet)")
+        label1.setSizePolicy(szp, szp)
+        label2.setSizePolicy(szp, szp)
+        label3.setSizePolicy(szp, szp)
+        left.layout().addWidget(label1)
+        left.layout().addWidget(reg_hslider)
+        left.layout().addWidget(label2)
+        left.layout().addWidget(range_hslider)
+        left.layout().addWidget(multi_range_hslider)
+        left.layout().addWidget(label3)
+        left.layout().addWidget(styled_reg_hslider)
+        left.layout().addWidget(styled_range_hslider)
 
-        layout = QVBoxLayout()
-        layout.addWidget(toolbar)
-        layout.addWidget(self.canvas)
+        right = QtW.QWidget()
+        right.setLayout(QtW.QHBoxLayout())
+        right.setContentsMargins(15, 5, 5, 0)
+        right.layout().setSpacing(30)
+        right.layout().addWidget(reg_vslider)
+        right.layout().addWidget(range_vslider)
+        right.layout().addWidget(tick_vslider)
+        right.layout().addWidget(range_tick_vslider)
 
-        slider_layout = QHBoxLayout()
-        slider_layout.addWidget(self.left_label)
-        slider_layout.addWidget(self.slider)
-        slider_layout.addWidget(self.right_label)
-        layout.addLayout(slider_layout)
-        layout.addWidget(self.label)
-        self.setLayout(layout)
+        self.setLayout(QtW.QHBoxLayout())
+        self.layout().addWidget(left)
+        self.layout().addWidget(right)
+        self.setGeometry(600, 300, 580, 300)
+        self.activateWindow()
+        self.show()
 
-        self.Img_ax.imshow(RGB_img)
-        self.Img_ax.axis('off')
-        self.canvas.draw()
-
-
-    def update_image(self):
-        wavelength = self.slider.value()
-        self.label.setText(f"Longueur d'onde : {wavelength} nm")
-        img_data = m.calcule_true_gray_opti(wavelength)
-        img_array = np.array(img_data, dtype=np.uint8)
-        self.Img_ax.clear()
-
-        # Switch-like behavior pour appliquer le bon cmap
-        selected_mode = self.combo_box.currentText()
-
-        if selected_mode == "RGB":
-            self.display_rgb(img_array)
-        elif selected_mode == "Gris":
-            self.display_gray(img_array)
-        else:
-            self.display_color(img_array)
-
-        def display_rgb(self, img_array):
-            mg_data = m.calcule_true_rgb_opti(wavelength)
-            img_array = np.array(img_data, dtype=np.uint8)
-            self.Img_ax.imshow(img_array)  # Affichage en couleur
-            self.Img_ax.axis('off')
-            self.canvas.draw()
-
-        def display_gray(self, img_array):
-            img_data = m.calcule_true_gray_opti(wavelength)
-            img_array = np.array(img_data, dtype=np.uint8)
-            self.Img_ax.imshow(img_array, cmap='gray')  # Affichage en niveaux de gris
-            self.Img_ax.axis('off')
-            self.canvas.draw()
-
-        def display_color(self, img_array):
-            img_data = m.calcule_true_gray_opti(wavelength)
-            img_array = np.array(img_data, dtype=np.uint8)
-            self.Img_ax.imshow(img_array)  # Affichage en niveaux de gris            self.Img_ax.axis('off')
-            self.canvas.draw()
-
-
-    def update_image(self):
-        wavelength = self.slider.value()
-        self.label.setText(f"Longueur d'onde : {wavelength} nm")
-
-        # Obtenir les données de l'image en fonction de la longueur d'onde
-        
-        if self.mode_combo.currentText() == "Gris":
-            img_data = m.calcule_true_gray_opti(wavelength)
-            img_array = np.array(img_data, dtype=np.uint8)
-            self.Img_ax.imshow(img_array, cmap='gray')  # Affichage en niveaux de gris
-            
-        elif  self.mode_combo.currentText() == "RGB":
-            img_data = m.calcule_true_rgb_opti(wavelength)
-            img_array = np.array(img_data, dtype=np.uint8)
-            self.Img_ax.imshow(img_array)
-        else:
-            img_data = m.calcule_true_rgb_opti(wavelength)
-            img_array = np.array(img_data, dtype=np.uint8)
-            self.Img_ax.imshow(img_array)  # Affichage en couleur
-
-        self.Img_ax.axis('off')
-        self.canvas.draw()
-class MatplotlibImage_Gris(QWidget):
-    def __init__(self, RGB_img):
-        super().__init__()
-        self.setStyleSheet("background-color: #2E2E2E;")
-        self.figure, self.Img_ax = plt.subplots(figsize=(10, 10), tight_layout=True)
-        self.canvas = FigureCanvas(self.figure)
-        self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        self.Img_ax.set_position([0, 0, 1, 1])
-        self.figure.patch.set_facecolor('#2E2E2E')
-
-        toolbar = NavigationToolbar(self.canvas, self)
-        toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
-        for action in toolbar.actions():
-            if action.text() in ["Home", "Customize"]:
-                toolbar.removeAction(action)
-
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setRange(402, 998)
-        self.slider.setTickPosition(QSlider.TicksBelow)
-        self.slider.setTickInterval(2)
-        self.slider.setSingleStep(2)
-        self.slider.valueChanged.connect(self.update_image)
-
-        font = QFont("Verdana", 20, QFont.Bold)
-        self.label = QLabel("Longueur d'onde : 0 nm")
-        self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("color: white; font-size: 30px;")
-        self.label.setFont(font)
-
-        self.left_label = QLabel("402 nm")
-        self.left_label.setStyleSheet("color: white; font-size: 20px;")
-        self.right_label = QLabel("998 nm")
-        self.right_label.setStyleSheet("color: white; font-size: 20px;")
-
-        # Création des boutons Gris et Couleur
-        self.gris_button = QPushButton("Gris")
-        self.gris_button.setCheckable(True)
-        self.gris_button.setChecked(True)  # Gris par défaut
-        self.gris_button.clicked.connect(self.select_gris)
-
-        self.couleur_button = QPushButton("Couleur")
-        self.couleur_button.setCheckable(True)
-        self.couleur_button.setChecked(False)
-        self.couleur_button.clicked.connect(self.select_couleur)
-
-        # Layout pour les boutons
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.gris_button)
-        button_layout.addWidget(self.couleur_button)
-
-        layout = QVBoxLayout()
-        layout.addWidget(toolbar)
-        layout.addWidget(self.canvas)
-        layout.addLayout(button_layout)
-
-        slider_layout = QHBoxLayout()
-        slider_layout.addWidget(self.left_label)
-        slider_layout.addWidget(self.slider)
-        slider_layout.addWidget(self.right_label)
-        layout.addLayout(slider_layout)
-        layout.addWidget(self.label)
-        self.setLayout(layout)
-
-        # Affichage initial de l'image en niveaux de gris
-        self.Img_ax.imshow(RGB_img, cmap='gray')
-        self.Img_ax.axis('off')
-        self.canvas.draw()
-
-    def update_image(self):
-        wavelength = self.slider.value()
-        self.label.setText(f"Longueur d'onde : {wavelength} nm")
-        img_data = m.calcule_true_gray_opti(wavelength)
-        img_array = np.array(img_data, dtype=np.uint8)
-        self.Img_ax.clear()
-
-        # Appliquer le cmap en fonction du bouton sélectionné
-        if self.gris_button.isChecked():
-            self.Img_ax.imshow(img_array, cmap='gray')  # Affichage en niveaux de gris
-        else:
-            self.Img_ax.imshow(img_array)  # Affichage en couleur (sans cmap)
-        
-        self.Img_ax.axis('off')
-        self.canvas.draw()
-
-    def select_gris(self):
-        self.couleur_button.setChecked(False)  # Désélectionner le bouton Couleur
-        self.update_image()
-
-    def select_couleur(self):
-        self.gris_button.setChecked(False)  # Désélectionner le bouton Gris
-        self.update_image()
-
-
-class MatplotlibImage_DoubleCurseur(QWidget):
-    def __init__(self, RGB_img):
-        super().__init__()
-        self.setStyleSheet("background-color: #2E2E2E;")
-        self.figure, self.Img_ax = plt.subplots(figsize=(10, 10), tight_layout=True)
-        self.canvas = FigureCanvas(self.figure)
-        self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        self.Img_ax.set_position([0, 0, 1, 1])
-        self.figure.patch.set_facecolor('#2E2E2E')
-
-        toolbar = NavigationToolbar(self.canvas, self)
-        toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
-        for action in toolbar.actions():
-            if action.text() in ["Home", "Customize"]:
-                toolbar.removeAction(action)
-
-        self.slider_min = QSlider(Qt.Horizontal)
-        self.slider_min.setRange(402, 998)
-        self.slider_min.setTickPosition(QSlider.TicksBelow)
-        self.slider_min.setTickInterval(2)
-        self.slider_min.setSingleStep(2)
-        self.slider_min.valueChanged.connect(self.update_image)
-
-        self.slider_max = QSlider(Qt.Horizontal)
-        self.slider_max.setRange(402, 998)
-        self.slider_max.setTickPosition(QSlider.TicksBelow)
-        self.slider_max.setTickInterval(2)
-        self.slider_max.setSingleStep(2)
-        self.slider_max.valueChanged.connect(self.update_image)
-
-        font = QFont("Verdana", 20, QFont.Bold)
-        self.label = QLabel("Longueur d'onde : 0 nm")
-        self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("color: white; font-size: 30px;")
-        self.label.setFont(font)
-
-        self.left_label = QLabel("402 nm")
-        self.left_label.setStyleSheet("color: white; font-size: 20px;")
-        self.right_label = QLabel("998 nm")
-        self.right_label.setStyleSheet("color: white; font-size: 20px;")
-
-        layout = QVBoxLayout()
-        layout.addWidget(toolbar)
-        layout.addWidget(self.canvas)
-
-        slider_layout = QHBoxLayout()
-        slider_layout.addWidget(self.left_label)
-        slider_layout.addWidget(self.slider_min)
-        slider_layout.addWidget(self.slider_max)
-        slider_layout.addWidget(self.right_label)
-        layout.addLayout(slider_layout)
-        layout.addWidget(self.label)
-        self.setLayout(layout)
-
-        self.Img_ax.imshow(RGB_img)
-        self.Img_ax.axis('off')
-        self.canvas.draw()
-
-    def update_image(self):
-        wavelength = self.slider.value()
-        self.label.setText(f"Longueur d'onde : {wavelength} nm")
-        img_data = m.calcule_true_rgb_opti(wavelength)
-        img_array = np.array(img_data, dtype=np.uint8)
-        self.Img_ax.clear()
-        self.Img_ax.imshow(img_array)
-        self.Img_ax.axis('off')
-        self.canvas.draw()
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Appli curseur")
-        self.showMaximized()
-        self.setStyleSheet("background-color: #2E2E2E;")
-
-        initial_image = np.zeros((100, 100, 3), dtype=np.uint8)  # Image en couleur par défaut
-        self.matplotlib_widget_gris = MatplotlibImage_Gris(initial_image)
-        self.matplotlib_widget_rgb = MatplotlibImage_RGB(initial_image)
-        self.matplotlib_widget_double = MatplotlibImage_DoubleCurseur(initial_image)
-
-        self.tabs = QTabWidget()
-        self.tab1 = QWidget()
-        self.tab2 = QWidget()
-
-        self.tabs.addTab(self.tab1, "Visualisation")
-        self.tabs.addTab(self.tab2, "Onglet Vide")
-
-
-
-        layout = QHBoxLayout()
-        layout.addWidget(self.matplotlib_widget_gris)
-        layout.addWidget(self.matplotlib_widget_rgb)
-        self.tab1.setLayout(layout)
-
-        layout2 = QVBoxLayout()
-        layout2.addWidget(self.matplotlib_widget_double)
-        self.tab2.setLayout(layout2)
-
-        self.setCentralWidget(self.tabs)
 
 if __name__ == "__main__":
-    app = QApplication.instance()
-    if not app:
-        app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+
+    import sys
+    from pathlib import Path
+
+    dest = Path("screenshots")
+    dest.mkdir(exist_ok=True)
+
+    app = QtW.QApplication([])
+    demo = DemoWidget()
+
+    if "-snap" in sys.argv:
+        import platform
+
+        QtW.QApplication.processEvents()
+        demo.grab().save(str(dest / f"demo_{platform.system().lower()}.png"))
+    else:
+        app.exec_()

@@ -6,15 +6,10 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from PySide6.QtGui import QFont
 #from qtrangeslider import QLabeledRangeSlider, QDoubleSlider
-from superqt import QRangeSlider, QLabeledSlider
+from superqt import QLabeledRangeSlider
 import main as m
 import spectral as sp
-from qtrangeslider._labeled import (
-    QLabeledDoubleRangeSlider,
-    QLabeledDoubleSlider,
-    QLabeledRangeSlider,
-    QLabeledSlider,
-)
+
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from PIL import Image
@@ -23,6 +18,7 @@ from qtpy.QtWidgets import QApplication
 
 # Désactiver le mode interactif de matplotlib
 plt.ioff()
+
 
 class MatplotlibImage(QWidget):
     def __init__(self, RGB_img):
@@ -96,6 +92,8 @@ class MatplotlibImage(QWidget):
         # Bouton "Importer fichier" (remplace l'ancien combo)
         self.import_button = QPushButton("Importer fichier")
         self.import_button.clicked.connect(self.import_file)
+
+
 
         
         self.fichier_selec = QLabel("{Aucun fichier sélectionné}")
@@ -190,7 +188,12 @@ class MatplotlibImage(QWidget):
         right_layout.addWidget(self.mode_combo)
         right_layout.addWidget(self.text_edit)
         right_layout.addWidget(self.save_button)
-        right_layout.addStretch()  # Ajoute un espace flexible en bas
+        # right_layout.addStretch()  # Ajoute un espace flexible en bas
+
+        self.qlrs = QLabeledRangeSlider(Qt.Horizontal)
+        self.qlrs.valueChanged.connect(lambda e: print("QLabeledRangeSlider valueChanged", e))
+        self.qlrs.setValue((20, 60))
+        right_layout.addWidget(self.qlrs)
 
         # Disposition globale : Image + contrôles à gauche | Mode combo & sauvegarde à droite
         main_layout = QHBoxLayout()
@@ -649,4 +652,8 @@ if __name__ == "__main__":
         app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    qlrs = QLabeledRangeSlider(Qt.Horizontal)
+    qlrs.valueChanged.connect(lambda e: print("QLabeledRangeSlider valueChanged", e))
+    qlrs.setValue((20, 60))
+    qlrs.show()
     sys.exit(app.exec())
