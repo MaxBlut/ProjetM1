@@ -8,7 +8,7 @@ sp.settings.envi_support_nonlowercase_params = True
 
 wlMin = 402
 wlMax = 998
-reflectance_image = sp.open_image("feuille_250624_ref.hdr")
+#reflectance_image = sp.open_image("feuille_250624_ref.hdr")
 
 
 def nmToRGB(wavelength):
@@ -56,7 +56,7 @@ def on_close(event):
 
 
 # Fonction principale pour calculer l'image RGB
-def calcule_true_rgb_opti(wl):
+def calcule_true_rgb_opti(wl, reflectance_image):
     if wl < wlMin or wl > wlMax:
         print("La longueur d'onde est hors de la plage.")
         return None
@@ -87,9 +87,37 @@ def calcule_true_rgb_opti(wl):
 
     return true_rgb_img
 
+def calcule_rgb_3slid(wl_r, wl_g, wl_b, reflectance_image):
+    wlMin, wlMax = 402, 998  # Plage de longueurs d'onde
+    if reflectance_image is None:
+        print("Erreur : image non chargée correctement.")
+    # Calcul des bandes respectives
+    r_reflectance = reflectance_image.read_band(round((wl_r - wlMin) / 2))
+    g_reflectance = reflectance_image.read_band(round((wl_g - wlMin) / 2))
+    b_reflectance = reflectance_image.read_band(round((wl_b - wlMin) / 2))
 
+    # Conversion en tableau NumPy
+    r_reflectance = np.array(r_reflectance, dtype=np.float32)
+    g_reflectance = np.array(g_reflectance, dtype=np.float32)
+    b_reflectance = np.array(b_reflectance, dtype=np.float32)
 
-def calcule_true_gray_opti(wl):
+    # Calcul des valeurs RGB pour chaque longueur d'onde
+    r, g, b = nmToRGB(wl_r)
+    true_rgb_img = np.zeros((r_reflectance.shape[0], r_reflectance.shape[1], 3), dtype=np.uint8)
+
+    # Appliquer les réflexions aux canaux respectifs
+    true_rgb_img[..., 0] = np.clip(r * r_reflectance * 255, 0, 255).astype(np.uint8)  # Rouge
+    true_rgb_img[..., 1] = np.clip(g * g_reflectance * 255, 0, 255).astype(np.uint8)  # Vert
+    true_rgb_img[..., 2] = np.clip(b * b_reflectance * 255, 0, 255).astype(np.uint8)  # Bleu
+
+    # Affichage de l'image
+    # plt.imshow(true_rgb_img)
+    # plt.title(f"Image RGB - R: {wl_r}nm, G: {wl_g}nm, B: {wl_b}nm")
+    # plt.axis('off')  # Ne pas afficher les axes
+    # plt.show()
+    return true_rgb_img
+
+def calcule_true_gray_opti(wl, reflectance_image):
     if wl < wlMin or wl > wlMax:
         print("La longueur d'onde est hors de la plage.")
         return None
