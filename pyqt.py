@@ -25,7 +25,7 @@ class MatplotlibImage(QWidget):
         super().__init__()
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText("Écrivez ici une description ou un commentaire...")
-        self.text_edit.setStyleSheet("background-color: #3A3A3A; color: white; font-size: 14px; padding: 5px;")
+        self.text_edit.setStyleSheet("background-color: #3A3A3A; color: white; font-size: 14px; padding: 5px; border-radius : 5px")
         self.file_path = None
         self.setStyleSheet("background-color: #2E2E2E;")
         
@@ -97,6 +97,8 @@ class MatplotlibImage(QWidget):
 
         
         self.fichier_selec = QLabel("{Aucun fichier sélectionné}")
+        self.fichier_selec.setFont(font)
+
 
         self.import_button.setStyleSheet("""
             QPushButton {
@@ -428,6 +430,9 @@ class MatplotlibImage_3slid(QWidget):
         self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
         self.Img_ax.set_position([0, 0, 1, 1])
         self.figure.patch.set_facecolor('#2E2E2E')
+        self.canvas.mpl_connect('button_press_event', self.on_click)
+
+
 
         toolbar = NavigationToolbar(self.canvas, self)
         toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
@@ -435,7 +440,7 @@ class MatplotlibImage_3slid(QWidget):
             if action.text() in ["Home", "Customize"]:
                 toolbar.removeAction(action)
 
-        #SLIDER MIN ET MAX
+        #SLIDER 
         self.slid_r = QSlider(Qt.Horizontal)
         self.slid_r.setRange(402, 998)
         self.slid_r.setTickPosition(QSlider.TicksBelow)
@@ -443,8 +448,8 @@ class MatplotlibImage_3slid(QWidget):
         self.slid_r.setSingleStep(2)
         self.slid_r.valueChanged.connect(self.update_slid_text)
         self.slid_r.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        # self.slid_r.sliderReleased.connect(self.update_spectre)
-        
+        self.slid_r.sliderReleased.connect(self.update_spectrum)
+
         self.slid_g = QSlider(Qt.Horizontal)
         self.slid_g.setRange(402, 998)
         self.slid_g.setTickPosition(QSlider.TicksBelow)
@@ -452,7 +457,7 @@ class MatplotlibImage_3slid(QWidget):
         self.slid_g.setSingleStep(2)
         self.slid_g.valueChanged.connect(self.update_slid_text)
         self.slid_g.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        # self.slid_g.sliderReleased.connect(self.update_spectre)
+        self.slid_g.sliderReleased.connect(self.update_spectrum)
 
         self.slid_b = QSlider(Qt.Horizontal)
         self.slid_b.setRange(402, 998)
@@ -461,13 +466,38 @@ class MatplotlibImage_3slid(QWidget):
         self.slid_b.setSingleStep(2)
         self.slid_b.valueChanged.connect(self.update_slid_text)
         self.slid_b.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        # self.slid_b.sliderReleased.connect(self.update_spectre)
+        self.slid_b.sliderReleased.connect(self.update_spectrum)
+
+        StyleSheet=("""
+    QSlider::groove:horizontal {
+        border: 1px solid #bbb;
+        background: #ddd;
+        height: 8px;
+        border-radius: 4px;
+    }
+
+    QSlider::handle:horizontal {
+        background: #0078D7; /* Bleu Windows */
+        border: 1px solid #005A9E;
+        width: 18px;
+        height: 18px;
+        margin: -5px 0;
+        border-radius: 9px;
+    }
+
+    QSlider::handle:horizontal:hover {
+        background: #005A9E; /* Bleu foncé au survol */
+    }
+""")
+        self.slid_r.setStyleSheet(StyleSheet)
+        self.slid_g.setStyleSheet(StyleSheet)
+        self.slid_b.setStyleSheet(StyleSheet)
 
         #---------------- Bouton "Importer fichier" 
         self.import_button = QPushButton("Importer fichier")
         self.import_button.clicked.connect(self.import_file)
-        self.fichier_selec = QLabel("{Aucun fichier sélectionné}")
-
+        self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 20px; font-style: italic;")
         self.import_button.setStyleSheet("""
             QPushButton {
                 background-color: #3A3A3A;
@@ -482,6 +512,63 @@ class MatplotlibImage_3slid(QWidget):
             }
         """)
 
+
+
+        # Création des labels
+        self.r_label = QLabel("R")
+        self.g_label = QLabel("G")
+        self.b_label = QLabel("B")
+
+        # Appliquer un style aux labels pour qu'ils soient colorés et lisibles
+        self.r_label.setStyleSheet("color: red; font-size: 20px; font-weight: bold;")
+        self.g_label.setStyleSheet("color: green; font-size: 20px; font-weight: bold;")
+        self.b_label.setStyleSheet("color: blue; font-size: 20px; font-weight: bold;")
+
+        # LABELS AU DSSUS --------------------------------
+        self.value_r = QLabel("402 nm")
+        self.value_r.setAlignment(Qt.AlignCenter)
+        self.value_r.setStyleSheet("color: white; font-size: 16px;")
+
+        self.value_g = QLabel("402 nm")
+        self.value_g.setAlignment(Qt.AlignCenter)
+        self.value_g.setStyleSheet("color: white; font-size: 16px;")
+
+        self.value_b = QLabel("402 nm")
+        self.value_b.setAlignment(Qt.AlignCenter)
+        self.value_b.setStyleSheet("color: white; font-size: 16px;")
+
+        # ------ LAYOUT ------
+        self.r_slidtex = QVBoxLayout()
+        self.r_slidtex.addWidget(self.value_r)
+        self.r_slidtex.addWidget(self.slid_r)
+
+        self.g_slidtex = QVBoxLayout()
+        self.g_slidtex.addWidget(self.value_g)
+        self.g_slidtex.addWidget(self.slid_g)
+
+        self.b_slidtex = QVBoxLayout()
+        self.b_slidtex.addWidget(self.value_b)
+        self.b_slidtex.addWidget(self.slid_b)
+
+        # LAYOUT SLID --------------------------------------
+        self.r_layout = QHBoxLayout()
+        self.r_layout.addWidget(self.r_label)
+        self.r_layout.addLayout(self.r_slidtex)
+
+        self.g_layout = QHBoxLayout()
+        self.g_layout.addWidget(self.g_label)
+        self.g_layout.addLayout(self.g_slidtex)
+
+        self.b_layout = QHBoxLayout()
+        self.b_layout.addWidget(self.b_label)
+        self.b_layout.addLayout(self.b_slidtex)
+
+        # Ajout des layouts dans le layout principal
+        slider_layout = QVBoxLayout()
+        slider_layout.addLayout(self.r_layout)
+        slider_layout.addLayout(self.g_layout)
+        slider_layout.addLayout(self.b_layout)
+
         #LABELS---------------------------------------------
         font = QFont("Verdana", 20, QFont.Bold)
         self.label = QLabel("Saisir des longeurs d'onde pour les canaux R, G, B")
@@ -494,16 +581,11 @@ class MatplotlibImage_3slid(QWidget):
         self.right_label = QLabel("998 nm")
         self.right_label.setStyleSheet("color: white; font-size: 20px;")
 
+
         #LAYOUTS---------------------------------------------
         import_layout = QHBoxLayout()
         import_layout.addWidget(self.import_button)
         import_layout.addWidget(self.fichier_selec)
-
-
-        slider_layout = QVBoxLayout()
-        slider_layout.addWidget(self.slid_r)
-        slider_layout.addWidget(self.slid_g)
-        slider_layout.addWidget(self.slid_b)
 
         img_layout = QVBoxLayout()
         img_layout.addLayout(import_layout)
@@ -512,30 +594,23 @@ class MatplotlibImage_3slid(QWidget):
         img_layout.addLayout(slider_layout)
         img_layout.addWidget(self.label)
 
-        # #SPECTRE---------------------------------------------
-        # self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
-        # self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
-        # self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
-        # self.spectrum_ax.set_ylabel("Intensité", color='black')
-        # self.spectrum_ax.set_xlim(402, 998)
-        # self.spectrum_ax.tick_params(axis='x', colors='black')
-        # self.spectrum_ax.tick_params(axis='y', colors='black')
-        # # Calcul initial du spectre global
-        # self.spectrum_x = self.img.metadata['wavelength']
-        # self.spectrum_x = np.array(self.spectrum_x)
-        # self.spectrum_x = self.spectrum_x.astype(float)
-
-        # self.img_s = np.array(self.img.load())  # ✅ Convertit en numpy.ndarray
-
-        # print(f"Type après .load(): {type(self.img_s)}")
-        # print(f"Shape après .load(): {self.img_s.shape}")  # Doit être (608, 968, 299)
-        # self.spectrum_y = np.mean(self.img_s, axis=(0,1))  # Moyenne des pixels par bande
-        # self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
+        #Création de l'affichage du spectre
+        self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
+        self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
+        self.spectrum_ax.set_ylabel("Intensité", color='black')
+        self.spectrum_ax.set_xlim(402, 998)
+        self.spectrum_ax.tick_params(axis='x', colors='black')
+        self.spectrum_ax.tick_params(axis='y', colors='black')
+        # Graphique vide au départ (sans données)
+        self.spectrum_ax.bar([], [], color=['red', 'green', 'blue'])  # Barres vides
+        self.spectrum_ax.set_title("Réflectance en fonction de la longueur d'onde")
+        self.spectrum_canvas.draw()
 
 
         main_layout = QHBoxLayout()
         main_layout.addLayout(img_layout, 1)
-        # main_layout.addWidget(self.spectrum_canvas, 1)
+        main_layout.addWidget(self.spectrum_canvas, 1)
 
         self.setLayout(main_layout)
         self.Img_ax.imshow(RGB_img)
@@ -543,10 +618,21 @@ class MatplotlibImage_3slid(QWidget):
         self.canvas.draw()
 
     def update_slid_text(self):
+        # Récupérer les valeurs des sliders
         wl_r = self.slid_r.value()
         wl_g = self.slid_g.value()
         wl_b = self.slid_b.value()
-        self.label.setText(f"Canal R :{wl_r} nm \n Canal G: {wl_g} nm \n Canal B: {wl_b} nm")
+
+        # Mettre à jour le texte des labels
+        self.value_r.setText(f"{wl_r} nm")
+        self.value_g.setText(f"{wl_g} nm")
+        self.value_b.setText(f"{wl_b} nm")
+
+        # Afficher la valeur des sliders sous forme de tooltip
+        self.slid_r.setToolTip(f"{wl_r} nm")
+        self.slid_g.setToolTip(f"{wl_g} nm")
+        self.slid_b.setToolTip(f"{wl_b} nm")
+
 
     def update_image(self):
         wl_r = self.slid_r.value()
@@ -567,27 +653,45 @@ class MatplotlibImage_3slid(QWidget):
         self.file_path, _ = QFileDialog.getOpenFileName(self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
         self.fichier_selec.setText(self.file_path)
         self.file_path = sp.open_image(self.file_path)
+        self.img_data = sp.open_image(self.file_path).load()
+        self.metadata = sp.open_image(self.file_path).metadata
     
-    # def update_spectre(self):
-    #     wl_min = self.slid_r.value()
-    #     wl_max = self.slid_g.value()
-    #     k_min = round((wl_min - 400) / 2)
-    #     k_max = round((wl_max - 400) / 2)
-    #     if wl_min < wl_max: 
-    #         #mask = (self.spectrum_x >= wl_min) & (self.spectrum_x <= wl_max)
-    #         #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
-    #         self.spectrum_ax.plot(self.spectrum_x[k_min:k_max], self.spectrum_y[k_min:k_max], color='cyan')
-                       
+    def update_spectrum(self,  wavelengths, reflectance_values):
+        # Récupérer les valeurs des sliders (longueurs d'onde)
+        self.spectre_ax.clear()
+        self.spectre_ax.set_xlabel("Longueur d'onde (nm)")
+        self.spectre_ax.set_ylabel("Réflectance")
+        self.spectre_ax.set_ylim(0, 1)
 
-    #         #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
-    #         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
-    #         self.spectrum_ax.set_ylabel("Intensité", color='black')
-    #         self.spectrum_ax.set_xlim(wl_min, wl_max)
-    #         self.spectrum_ax.tick_params(axis='x', colors='black')
-    #         self.spectrum_ax.tick_params(axis='y', colors='black')
-    #         self.spectrum_figure.tight_layout()
-    #         self.spectrum_canvas.draw()
-            
+        # Création du diagramme en barres
+        colors = ['red', 'green', 'blue']
+        self.spectre_ax.bar(wavelengths.values(), reflectance_values, color=colors, width=20)
+
+        self.spectre_ax.set_xticks(list(wavelengths.values()))  # Afficher les longueurs d'onde
+        self.spectre_canvas.draw()  # Rafraîchir l'affichage
+
+    def on_click(self, event):
+        if self.img_data is None or self.metadata is None:
+            print("Aucune image hyperspectrale chargée.")
+            return
+
+        if event.inaxes != self.Img_ax:
+            return
+
+        x, y = int(event.xdata), int(event.ydata)
+        print(f"Pixel cliqué : ({x}, {y})")
+
+        # Récupération des longueurs d'onde choisies
+        wavelengths = [self.slid_r.value(), self.slid_g.value(), self.slid_b.value()]
+        reflectance_values = []
+        
+        # Extraction des valeurs de réflectance
+        for wl in wavelengths:
+            idx = np.abs(np.array(self.metadata['wavelength'], dtype=float) - wl).argmin()
+            reflectance_values.append(self.img_data[y, x, idx])
+
+        # Mise à jour de l'affichage
+        self.update_spectrum(wavelengths, reflectance_values)
 
 class MainWindow(QMainWindow):
     def __init__(self):
