@@ -33,6 +33,8 @@ class MainWindow(QMainWindow):
 
         # Initialize a dictionary to keep track of created tabs
         self.setup_tab1()
+
+        
     def on_tab_changed(self, index):
         if index == 0:
             self.setup_tab1()
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
         label = QLabel("This is Tab 3")
         layout.addWidget(label)
         self.tab3.setLayout(layout)
+
     
     def unload_tabs(self, tab1=False, tab2=False, tab3=False):
         if tab1:
@@ -69,6 +72,9 @@ class MainWindow(QMainWindow):
             self.tab2.setLayout(None)
         if tab3:
             self.tab3.setLayout(None)
+
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()

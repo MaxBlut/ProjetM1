@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton,QLabel, QSizePolicy
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QPushButton,QLabel, QSizePolicy, QHBoxLayout, QFileDialog
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
@@ -19,14 +19,14 @@ sp.settings.envi_support_nonlowercase_params = True
 class MainWindow_draw_cluster(QWidget):
     def __init__(self):
         super().__init__()
-        wlMin = 402
-        R = round((700-wlMin)/2) 
-        G = round((550-wlMin)/2)
-        B = round((450-wlMin)/2)
-        data = sp.open_image("feuille_250624_ref.hdr").load()
-        RGB_img = data[:,:,(R,G,B)]
-        if RGB_img.max()*2 < 1:
-            RGB_img = 2*RGB_img
+        
+        self.data = None
+        self.map = []           # Variable to store the map
+        self.overlay = None     # Variable to store the overlay object for easy removal
+        self.points = []        # List to store clicked points
+        self.point_plots = []   # Store plotted points Object for easy removal
+        self.line_polts = []    # Store plotted lines Object for easy removal
+
         self.setWindowTitle("Matplotlib in PyQt - Click Detection")
         self.figure, (self.Img_ax, self.second_ax) = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
@@ -38,17 +38,23 @@ class MainWindow_draw_cluster(QWidget):
         self.button_delete.clicked.connect(lambda: self.delete("all"))
         
         self.label = QLabel("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
-        # self.label.setContentsMargins(10,10,10,10)  # Set margin for the label
         self.label.setAlignment(Qt.AlignCenter)  # Center the text
         self.label.setSizePolicy(QSizePolicy.Preferred , QSizePolicy.Fixed)
         
+
+        # File Selection
+        file_layout = QHBoxLayout()
+        self.file_label = QLabel("Aucun fichier sélectionné")
+        file_button = QPushButton("Choisir un fichier")
+        file_button.clicked.connect(self.load_file)
+        file_layout.addWidget(file_button)
+        file_layout.addWidget(self.file_label)
         
 
         toolbar = NavigationToolbar(self.canvas, self)
-        # toolbar.setContentsMargins(10,10,10,10)
         
         layout = QVBoxLayout()
-        
+        layout.addLayout(file_layout)
         layout.addWidget(self.label)
         layout.addWidget(toolbar)
         layout.addWidget(self.canvas)
@@ -56,15 +62,7 @@ class MainWindow_draw_cluster(QWidget):
         layout.addWidget(self.button_delete)
         self.setLayout(layout)
         
-        self.Img_ax.imshow(RGB_img, cmap='gray')
-        self.Img_ax.axis('off')
 
-        self.data = data
-        self.map = []           # Variable to store the map
-        self.overlay = None     # Variable to store the overlay object for easy removal
-        self.points = []        # List to store clicked points
-        self.point_plots = []   # Store plotted points Object for easy removal
-        self.line_polts = []    # Store plotted lines Object for easy removal
         
         # Connect mouse click event
         self.canvas.mpl_connect("button_press_event", self.on_click)
@@ -75,6 +73,40 @@ class MainWindow_draw_cluster(QWidget):
 
         self.canvas.draw()
 
+
+    def load_file(self):
+        self.data = None
+        self.first_cluster_map = None
+        self.second_cluster_map = None
+        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
+        if file_path:
+            self.file_label.setText(f"Fichier : {file_path}")
+            self.data = sp.open_image(file_path).load()
+            self.wavelengths = [402 + 2 * i for i in range(self.data.shape[2])]
+        self.Img_ax.clear()
+        self.second_ax.clear()
+        self.display_image()
+        self.canvas.draw()
+
+
+    def display_image(self):
+        if self.data is not None:
+            self.Img_ax.clear()
+            wlMin = 402
+            R = round((700-wlMin)/2) 
+            G = round((550-wlMin)/2)
+            B = round((450-wlMin)/2)
+            RGB_img = self.data[:,:,(R,G,B)]
+
+            if RGB_img.max()*2 < 1:
+                try:
+                    RGB_img = 2*RGB_img
+                except ValueError:
+                    pass
+            self.Img_ax.imshow(RGB_img)
+            self.Img_ax.axis('off')
+            self.canvas.draw()
+    
 
     def on_click(self, event):
         # Handle mouse click events.

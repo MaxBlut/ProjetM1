@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QToolButton, QButtonGroup
+from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QFrame,QBoxLayout
 from PySide6.QtGui import QIcon
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
@@ -10,9 +10,6 @@ from tkinter import messagebox
 from matplotlib.legend import Legend
 
 from utiles import mean_spectre_of_cluster
-
-
-
 
 
 
@@ -32,30 +29,37 @@ class CustomToolbar(NavigationToolbar):
         self.selected_pixels_map = None
         self.overlay = None
 
-        # Create Toggle Buttons
+        # Find the "Edit Axis" button in the toolbar
+        self.edit_axes_action = self._actions.get("edit_parameters")
+        
+        
+        
+
+        # Create mean_spctr_point_button Buttons
         self.mean_spctr_point_button = QToolButton(self)
         self.mean_spctr_point_button.setCheckable(True)
-        self.mean_spctr_point_button.setIcon(QIcon("i-remade-that-hamster-meme-into-my-rat-v0-cercyjvmn3kb1.jpg"))  # Replace with your image
+        self.mean_spctr_point_button.setIcon(QIcon("i-remade-that-hamster-meme-into-my-rat-v0-cercyjvmn3kb1.jpg")) 
         self.mean_spctr_point_button.setToolTip("plot_mean_spctr_point")
         self.mean_spctr_point_button.clicked.connect(self.toggle_mean_spctr_point)
 
+        # Create pen_button Buttons
         self.pen_button = QToolButton(self)
         self.pen_button.setCheckable(True)
-        self.pen_button.setIcon(QIcon("pen.png"))  # Replace with your image
+        self.pen_button.setIcon(QIcon("pen.png"))
         self.pen_button.setToolTip("draw on the left graph")
         self.pen_button.clicked.connect(self.toggle_pen)
 
         
-        # Button Group (Allow Manual Unchecking)
-        self.button_group = QButtonGroup(self)
-        self.button_group.setExclusive(False)  # Ensure only one button is active at a time
-        self.button_group.addButton(self.mean_spctr_point_button)
-        self.button_group.addButton(self.pen_button)
+        self.merge_clusters_button = QToolButton(self)
+        self.merge_clusters_button.setIcon(QIcon("merge.png")) 
+        self.merge_clusters_button.setToolTip("Merge Clusters")
+        self.merge_clusters_button.clicked.connect(self.open_merge_window)
 
 
         # Insert buttons on the LEFT side of the toolbar
         self.insertWidget(self.actions()[0], self.pen_button)
         self.insertWidget(self.actions()[0], self.mean_spctr_point_button)
+        self.insertWidget(self.actions()[-1], self.merge_clusters_button)
        
 
         self.canvas.mpl_connect("button_press_event",self.on_click)
@@ -63,6 +67,63 @@ class CustomToolbar(NavigationToolbar):
         self.canvas.mpl_connect("button_release_event", self.on_mouse_release)
         self._actions['zoom'].triggered.connect(self.zoom_toggled)
         self._actions['pan'].triggered.connect(self.pan_toggled)
+        if self.edit_axes_action:
+            self.edit_axes_action.triggered.connect(self.hook_edit_axis_dialog)
+
+
+
+    def open_merge_window(self):
+        _, self.clusters_labels = self.parent.axs[1].get_legend_handles_labels()
+        if self.clusters_labels:
+            """Opens a dialog to merge two clusters."""
+            self.merge_dialog = QDialog(self.parent)
+            self.merge_dialog.setWindowTitle("Merge Clusters")
+            layout = QVBoxLayout()
+
+            # Labels
+            layout.addWidget(QLabel("Select Cluster 1:"))
+            self.cluster1_dropdown = QComboBox()
+            layout.addWidget(self.cluster1_dropdown)
+
+            layout.addWidget(QLabel("Select Cluster 2:"))
+            self.cluster2_dropdown = QComboBox()
+            layout.addWidget(self.cluster2_dropdown)
+
+            # Merge Button
+            merge_button = QPushButton("Merge")
+            merge_button.clicked.connect(self.merge_clusters)
+            layout.addWidget(merge_button)
+
+            # Populate dropdowns with existing clusters
+            self.populate_cluster_dropdowns()
+
+            self.merge_dialog.setLayout(layout)
+            self.merge_dialog.exec_()
+
+    
+    def populate_cluster_dropdowns(self):
+        """Fill dropdowns with available cluster names."""
+        self.cluster1_dropdown.addItems(self.clusters_labels)
+        self.cluster2_dropdown.addItems(self.clusters_labels)
+
+
+    def merge_clusters(self):
+        """Merge two selected clusters into one."""
+        label1 = self.cluster1_dropdown.currentText()
+        label2 = self.cluster2_dropdown.currentText()
+        if label1 and label2 and label1 != label2:
+            lines = []
+        
+            for line, label in zip(self.parent.axs[1].get_lines(), self.clusters_labels):
+                if label == label1 or label == label2:
+                    lines.append(line)
+        
+            self.parent.merge_lines(lines)  # Call parent method
+            self.merge_dialog.accept()  # Close window
+
+
+
+
 
     def pan_toggled(self):
         if self._actions['pan'].isChecked():
@@ -86,7 +147,6 @@ class CustomToolbar(NavigationToolbar):
                 self.pan()  # This properly toggles the pan off
             self.pen_button.setChecked(False)
             
-
     
     def toggle_pen(self):
         if self.pen_button.isChecked():
@@ -102,6 +162,10 @@ class CustomToolbar(NavigationToolbar):
                     self.selected_pixels_map = np.full((self.parent.data_img.shape[0], self.parent.data_img.shape[1]), False, dtype=bool)
             else:
                 self.pen_button.setChecked(False)
+
+
+
+
 
 
     def on_click(self, event):
@@ -172,16 +236,26 @@ class CustomToolbar(NavigationToolbar):
             
         elif self.right_mouse_pressed and event.button == 3:
             self.right_mouse_pressed = False 
-        
-        
-            
 
 
+    def hook_edit_axis_dialog(self):
+        """Hooks into the Edit Axis dialog and connects the Apply button to update the legend."""
+        print("Edit Axis dialog opened!")
 
+        # Ensure Matplotlib has updated before searching for the dialog
+        self.parent.canvas.draw_idle()
 
-
-
-
+        # Loop through all open dialogs
+        for dialog in QApplication.instance().topLevelWidgets():
+            if isinstance(dialog, QDialog):  # Find the Edit Axis QDialog
+                # Find the button box inside the dialog
+                button_box = dialog.findChild(QDialogButtonBox)
+                if button_box:
+                    # Loop through buttons and connect the "Apply" button
+                    for button in button_box.buttons():
+                        if button.text() == "Apply" or button.text() == "Ok":
+                            button.clicked.connect(lambda: self.canvas.draw("legend"))
+                            print("Connected Apply button to legend update.")
 
 
 
@@ -214,7 +288,7 @@ class PickableLegend(Legend):
         self._enable_picking()
 
         
-        self.parent_canvas._pick_event_id = self.parent_canvas.mpl_connect("pick_event", self.on_pick)
+        self._pick_event_id = self.parent_canvas.mpl_connect("pick_event", self.on_pick)
 
 
         # self.parent_canvas.mpl_connect("pick_event", self.on_pick)
@@ -274,11 +348,10 @@ class PickableLegend(Legend):
 
 
 class CustomCanvas(FigureCanvas):
-    def __init__(self, figure, parent_ax):
+    def __init__(self, figure, parent_axs):
         super().__init__(figure)
-        self.parent_ax = parent_ax
-        self.parent_legend_obj = None
-        self._pick_event_id = None
+        self.parent_axs = parent_axs
+        self.legend_obj = [None for _ in range(len(self.parent_axs))]
 
 
     def draw(self, what = None):
@@ -289,22 +362,18 @@ class CustomCanvas(FigureCanvas):
 
 
     def update_legend(self):
-        """Updates the legend without re-adding pick events multiple times."""
-        print("Updating legend...")
+        """Updates the legend be removing and reploting it."""
         
-        # Only remove and recreate the legend if something changed
-        _, labels = self.parent_ax.get_legend_handles_labels()
-        # Check if legend already exists
-        if self.parent_legend_obj is not None:
-            print("removing old legend")
-            for leg_line in self.parent_legend_obj.get_lines():
-                leg_line.set_picker(False)  # disable clicking on legend items
-            self.mpl_disconnect(self._pick_event_id)
-            self.parent_legend_obj.remove()
-            self.parent_legend_obj = None
+        for i in range(len(self.parent_axs)):
+            _, labels = self.parent_axs[i].get_legend_handles_labels()
+            # Check if legend already exists
+            if self.legend_obj[i] is not None:
+                self.mpl_disconnect(self.legend_obj[i]._pick_event_id)
+                self.legend_obj[i].remove()
+                self.legend_obj[i] = None
 
-        # Create and add the new legend
-        if len(labels)>0:
-            self.parent_legend_obj = PickableLegend(self.parent_ax, self, self.parent_ax.get_lines(), labels)
-            self.parent_ax.add_artist(self.parent_legend_obj)
+            # Create and add the new legend
+            if len(labels)>0:
+                self.legend_obj[i] = PickableLegend(self.parent_axs[i], self, self.parent_axs[i].get_lines(), labels)
+                self.parent_axs[i].add_artist(self.legend_obj[i])
         

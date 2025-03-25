@@ -7,13 +7,16 @@ from time import time
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel,
-    QFileDialog, QHBoxLayout, QLineEdit
+    QFileDialog, QHBoxLayout, QLineEdit, QSlider
 )
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
-from CustomElement import CustomToolbar, CustomCanvas
+from superqt import QRangeSlider, QLabeledRangeSlider
+from qtpy.QtCore import Qt
+
+from CustomElement import CustomCanvas,CustomToolbar
 from utiles import mean_spectre_of_cluster
+
+import re
 
 import os
 os.environ['OMP_NUM_THREADS'] = '4' 
@@ -34,13 +37,23 @@ class KMeansApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("K-Means Clustering on HDR Images")
-        self.wavelengths = None
+        self.variable_init()
+        self.init_ui()
+
+
+    def variable_init(self):
+        self.param_has_changed_fkm = True # variable booleene pour signaler lorsqu'une modification a été faite aux parametre du clustering
+        self.param_has_changed_skm = True
+        self.param_has_changed_spectra = True
         self.file_path = None
+        self.wavelengths = None
         self.data_img = None
         self.first_cluster_map = None
         self.second_cluster_map = None
-        self.init_ui()
-        
+        self.wl_min = None
+        self.wl_max = None
+  
+
 
     def init_ui(self):
         central_widget = QWidget()
@@ -59,7 +72,9 @@ class KMeansApp(QMainWindow):
         # Matplotlib Figure
         self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10))
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
-        self.canvas = CustomCanvas(self.figure, self.axs[1])
+        self.axs[0].set_title("hyperspectral image")
+        self.axs[1].set_title("spectrum")
+        self.canvas = CustomCanvas(self.figure, [self.axs[1]])
         layout.addWidget(CustomToolbar(self.canvas, self))
         layout.addWidget(self.canvas)
         
@@ -70,7 +85,6 @@ class KMeansApp(QMainWindow):
         self.btn_second_kmean = QPushButton("Deuxième K-Means")
         self.btn_spectra = QPushButton("Spectres Moyens")
         
-        
         btn_layout.addWidget(self.btn_show_image)
         btn_layout.addWidget(self.btn_first_kmean)
         btn_layout.addWidget(self.btn_second_kmean)
@@ -78,12 +92,35 @@ class KMeansApp(QMainWindow):
         layout.addLayout(btn_layout)
         
         # KMeans parameters
+        param_layout = QHBoxLayout(self)
         self.n_clusters_input = QLineEdit("6")
         self.n_iterations_input = QLineEdit("25")
-        layout.addWidget(QLabel("Clusters:"))
-        layout.addWidget(self.n_clusters_input)
-        layout.addWidget(QLabel("Iterations:"))
-        layout.addWidget(self.n_iterations_input)
+        param_layout.addWidget(QLabel("Clusters:"))
+        param_layout.addWidget(self.n_clusters_input)
+        param_layout.addWidget(QLabel("Iterations:"))
+        param_layout.addWidget(self.n_iterations_input)
+        layout.layout().addLayout(param_layout)
+        
+
+        # Double slider
+        slider_layout = QHBoxLayout(self)
+        self.slider = QRangeSlider(Qt.Orientation.Horizontal)
+        self.slider.setValue((0, 10))
+        # self.slider.setTickPosition(QSlider.TickPosition.TicksAbove)
+        # self.slider.setSingleStep(2)                    #   to-do modifier pour ne pas avoir de valeur en dur
+        # self.slider.setTickInterval(10)
+        self.wl_min_label = QLabel("0")
+        self.wl_max_label = QLabel("10")
+        slider_layout.addWidget(self.wl_min_label)
+        slider_layout.addWidget(self.slider)
+
+        slider_layout.addWidget(self.wl_max_label)
+        layout.layout().addLayout(slider_layout)
+        self.slider.slidersMoved.connect(self.slider_value_changed) 
+
+        # connecte les text box pour mettre le flag 
+        self.n_clusters_input.textChanged.connect(self.set_param_has_changed)  
+        self.n_iterations_input.textChanged.connect(self.set_param_has_changed)  
         
         # Connect buttons
         self.btn_show_image.clicked.connect(self.display_image)
@@ -93,31 +130,76 @@ class KMeansApp(QMainWindow):
 
         # self.canvas.mpl_connect("draw_event", self.update_legend) # emet un signal lorsque le canvas est updaté
         self.canvas.mpl_connect("button_press_event", self.on_click)
-    
+
+
+    def set_param_has_changed(self):
+        self.param_has_changed_fkm = True 
+
 
     def load_file(self):
-        self.file_path = None
-        self.data_img = None
-        self.first_cluster_map = None
-        self.second_cluster_map = None
+        self.variable_init()
         self.file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
         if self.file_path:
             self.file_label.setText(f"Fichier : {self.file_path}")
             self.data_img = sp.open_image(self.file_path).load()
-            self.wavelengths = [402 + 2 * i for i in range(self.data_img.shape[2])]
+            self.extract_hdr_info()
         self.axs[0].clear()
         self.axs[1].clear()
+        self.axs[1].set_title("spectrum")
+        self.canvas.legend_obj[0] = None # we make sure the legend objet get reseted
         self.display_image()
+        self.slider.valueChanged.disconnect()
+        self.slider.setRange(self.wl_min,self.wl_max)               #
+        self.slider.setValue((self.wl_min,self.wl_max))             # Configure le slider
         self.canvas.draw()
     
+
+    def slider_value_changed(self, value):
+        """Update labels and restrict slider movement to allowed values."""
+        
+        min_index, max_index = value  # Get slider positions
+        min_index = int(min_index-self.wl_min)
+        max_index = int(max_index-self.wl_max)
+        min_value, max_value = int(self.wavelengths[min_index]), int(self.wavelengths[max_index])  # Map indices to values
+        self.wl_min_label.setText("{}".format(min_value))
+        self.wl_max_label.setText("{}".format(max_value))
+        """Reduit l'étude des clustering aux valeurs indiqués"""
+        if self.file_path :
+            self.data_img = sp.open_image(self.file_path).load()[:,:,min_index:max_index]
+            self.set_param_has_changed()
+
+
+    
+    def extract_hdr_info(self):
+        """Extract wlMin and wlMax from an ENVI header file."""
+        print("extraction")
+        with open(self.file_path, "r") as file:
+            for line in file:
+                if line.startswith("wlMin"):
+                    self.wl_min = int(line.split("=")[-1].strip())  # Extract value
+                elif line.startswith("wlMax"):
+                    self.wl_max = int(line.split("=")[-1].strip())  # Extract value
+
+        with open(self.file_path, "r") as file:
+            for line in file:
+                if line.startswith("wavelength ="):
+                    match = re.search(r"\{(.*?)\}", line)
+                    if match:
+                        print("in match")
+                        # Convert values to a float list
+                        self.wavelengths = [float(w.strip()) for w in match.group(1).split(",")]
+                    else:
+                        self.wavelengths = [self.wl_min + 2 * i for i in range(self.data_img.shape[2])]
+                    
+        return 
+
 
     def display_image(self):
         if self.data_img is not None:
             self.axs[0].clear()
-            wlMin = 402
-            R = round((700-wlMin)/2) 
-            G = round((550-wlMin)/2)
-            B = round((450-wlMin)/2)
+            R = round((700-self.wl_min)/2) 
+            G = round((550-self.wl_min)/2)
+            B = round((450-self.wl_min)/2)
             RGB_img = self.data_img[:,:,(R,G,B)]
 
             if RGB_img.max()*2 < 1:
@@ -127,59 +209,74 @@ class KMeansApp(QMainWindow):
                     pass
             self.axs[0].imshow(RGB_img)
             self.axs[0].axis('off')
+            self.axs[0].set_title("hyperspectral image")
             self.canvas.draw()
+
+
             
     
     def apply_first_kmean(self):
         if self.data_img is not None:
-            t1 = time()
-            reshaped_data = self.data_img.reshape(-1, self.data_img.shape[-1]) # Reshape to (n_lines*n_colones, n_bands)
-            kmeans = MiniBatchKMeans(n_clusters=2, n_init='auto', max_iter=10, random_state=42)
-            labels = kmeans.fit_predict(reshaped_data[:,::10]) # uses a fraction of the bands for clustering to speed up the process
-            self.first_cluster_map = labels.reshape(self.data_img.shape[:-1])
+            if self.param_has_changed_fkm or self.first_cluster_map is None: # on ne calcule les clusters que si les parametre ont changé ou si il n'existe pas deja de cluster map
+                t1 = time()
+                reshaped_data = self.data_img.reshape(-1, self.data_img.shape[-1]) # Reshape to (n_lines*n_colones, n_bands)
+                kmeans = MiniBatchKMeans(n_clusters=2, n_init='auto', max_iter=10, random_state=42)
+                labels = kmeans.fit_predict(reshaped_data[:,::10]) # uses a fraction of the bands for clustering to speed up the process
+                self.first_cluster_map = labels.reshape(self.data_img.shape[:-1])
+                print("first kmean executed in:", time()-t1)
+                self.param_has_changed_fkm = False
+                self.param_has_changed_skm = True       # met la variable a True pour recharger le second Kmean
             self.axs[0].clear()
+            self.axs[0].set_title("hyperspectral image")
             self.axs[0].imshow(self.first_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
             self.canvas.draw()
-            print("first kmean executed in:", time()-t1)
+            
+            
     
 
     def apply_second_kmean(self):
-        if self.data_img is not None and self.first_cluster_map is not None:
+        if self.data_img is not None and self.first_cluster_map is not None: # si nous avons les données necessaire au second kmean
             try:
                 n_clusters = int(self.n_clusters_input.text())
                 iterations = int(self.n_iterations_input.text())
             except ValueError:
+                print("value error in n_clusters or n_iterations")
                 return
-           
-            mask = self.first_cluster_map == 1
-            data_first_cluster = self.data_img[mask, :]
-            kmeans = KMeans(n_clusters=n_clusters, n_init='auto', max_iter=iterations, random_state=42)
-            labels = kmeans.fit_predict(data_first_cluster)
-            self.second_cluster_map = np.zeros_like(self.first_cluster_map, dtype=int)
-            self.second_cluster_map[mask] = labels + 1
+            if self.param_has_changed_skm or self.second_cluster_map is None: #on ne calcule les clusters que si les parametre ont changé ou si il n'existe pas deja de cluster map
+                mask = self.first_cluster_map == 1
+                data_first_cluster = self.data_img[mask, :]
+                kmeans = KMeans(n_clusters=n_clusters, n_init='auto', max_iter=iterations, random_state=42)
+                labels = kmeans.fit_predict(data_first_cluster)
+                self.second_cluster_map = np.zeros_like(self.first_cluster_map, dtype=int)
+                self.second_cluster_map[mask] = labels + 1
+                self.param_has_changed_skm = False
+                self.param_has_changed_spectra = True       # met la variable a True pour recharger le display spectra
             
             self.axs[0].clear()
+            self.axs[0].set_title("hyperspectral image")
             self.axs[0].imshow(self.second_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
             self.canvas.draw()
     
 
     def display_spectra(self):
-        if self.data_img is not None and self.second_cluster_map is not None:
+        if self.data_img is not None and self.second_cluster_map is not None and self.param_has_changed_spectra:
             self.axs[1].clear()     # Clear the right graph
-            self.graph_dict = {}    # Reset the graph dictionary
+            self.axs[1].set_title("spectrum")
+            self.canvas.legend_obj[0] = None
             cmap = plt.get_cmap("nipy_spectral")
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
             # Store plotted lines
+            
             
             for i in np.unique(self.second_cluster_map):
                 avg_spectrum = mean_spectre_of_cluster(self.second_cluster_map, self.data_img, selected_cluster_value=i)
                 self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
             # Create the legend **AFTER** plotting all lines
             self.canvas.draw("legend")
+            self.param_has_changed_spectra = False
 
-            
 
     def on_click(self, event):
         """Handles mouse clicks on the left graph to get pixel coordinates."""
@@ -191,7 +288,17 @@ class KMeansApp(QMainWindow):
                 if self.first_cluster_map[y, x] != 1:
                     self.first_cluster_map = 1 - self.first_cluster_map
                     self.second_cluster_map = None
+                    self.param_has_changed_skm = True
 
+
+    def merge_lines(self, lines):
+        line_data = []
+        for line in lines:
+            line_data.append(line.get_ydata())
+            line.remove()
+        moyenne = np.mean(line_data,axis=0)
+        self.axs[1].plot(self.wavelengths,moyenne, label="merged cluster")
+        self.canvas.draw("legend")
 
     
 
