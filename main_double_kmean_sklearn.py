@@ -60,6 +60,16 @@ class KMeansApp(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+
+        #  Remove existing layout if there is one
+        if central_widget.layout() is not None:
+            old_layout = central_widget.layout()
+            while old_layout.count():
+                item = old_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            old_layout.deleteLater()
+
         layout = QVBoxLayout(central_widget)
 
         # File Selection
@@ -81,7 +91,7 @@ class KMeansApp(QMainWindow):
         layout.addWidget(self.canvas)
         
         # Buttons 
-        btn_layout = QHBoxLayout(self)
+        btn_layout = QHBoxLayout()
         self.btn_show_image = QPushButton("Afficher Image")
         self.btn_first_kmean = QPushButton("Premier K-Means")
         self.btn_second_kmean = QPushButton("Deuxième K-Means")
@@ -94,24 +104,22 @@ class KMeansApp(QMainWindow):
         layout.addLayout(btn_layout)
         
         # KMeans parameters
-        param_layout = QHBoxLayout(self)
+        param_layout = QHBoxLayout()
         self.n_clusters_input = QLineEdit("6")
         self.n_iterations_input = QLineEdit("25")
         param_layout.addWidget(QLabel("Clusters:"))
         param_layout.addWidget(self.n_clusters_input)
         param_layout.addWidget(QLabel("Iterations:"))
         param_layout.addWidget(self.n_iterations_input)
-        layout.layout().addLayout(param_layout)
-        
+        layout.addLayout(param_layout)  #  Fix: Removed `layout.layout()`
 
         # Double slider
-
         self.slider_widget = CustomWidgetRangeSlider()
         self.slider_widget.range_slider.sliderReleased.connect(self.slider_value_changed) 
         self.slider_widget.range_slider.sliderReleased.connect(self.set_param_has_changed) 
-        layout.layout().addWidget(self.slider_widget)
+        layout.addWidget(self.slider_widget)  #  Fix: Removed `layout.layout()`
 
-        # connecte les text box pour mettre le flag 
+        # Connect text box signals
         self.n_clusters_input.textChanged.connect(self.set_param_has_changed)  
         self.n_iterations_input.textChanged.connect(self.set_param_has_changed)  
         
@@ -121,15 +129,16 @@ class KMeansApp(QMainWindow):
         self.btn_second_kmean.clicked.connect(self.apply_second_kmean)
         self.btn_spectra.clicked.connect(self.display_spectra)
 
-        # self.canvas.mpl_connect("draw_event", self.update_legend) # emet un signal lorsque le canvas est updaté
+        # self.canvas.mpl_connect("draw_event", self.update_legend) # emits signal when canvas is updated
         self.canvas.mpl_connect("button_press_event", self.on_click)
 
 
     def set_param_has_changed(self):
-        self.param_has_changed_fkm = True 
+        self.param_has_changed_skm = True 
 
 
     def load_file(self):
+        self.param_has_changed_fkm = True 
         self.variable_init()
         self.file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
         if self.file_path:
@@ -146,20 +155,19 @@ class KMeansApp(QMainWindow):
     
 
     def slider_value_changed(self, value):
-        """Update labels and restrict slider movement to allowed values."""
+        """Restreint la valeur de data_img et wavelenght aux longeurs d'ondes compris entre le min et le max"""
         self.wl_min, self.wl_max= value  # Get slider positions
         if self.file_path :
             self.data_img = sp.open_image(self.file_path).load()[:,:,self.wl_min:self.wl_max]
             self.set_param_has_changed()
             self.wavelengths = self.original_wavelengths[self.wl_min:self.wl_max]
-            print("image data cropped between ",self.wavelengths[0]," and ", self.wavelengths[-1])
+            # print("image data cropped between ",self.wavelengths[0]," and ", self.wavelengths[-1])
 
 
 
     
     def extract_hdr_info(self):
         """Extract wlMin and wlMax from an ENVI header file."""
-        print("extraction")
         with open(self.file_path, "r") as file:
             for line in file:
                 if line.startswith("wlMin"):
@@ -172,7 +180,6 @@ class KMeansApp(QMainWindow):
                 if line.startswith("wavelength ="):
                     match = re.search(r"\{(.*?)\}", line)
                     if match:
-                        print("in match")
                         # Convert values to a float list
                         self.original_wavelengths = [float(w.strip()) for w in match.group(1).split(",")]
                         self.wavelengths = self.original_wavelengths
@@ -191,7 +198,7 @@ class KMeansApp(QMainWindow):
 
             if RGB_img.max()*2 < 1:
                 try:
-                    RGB_img = 2*RGB_img
+                    RGB_img = 2*RGB_img.view(np.ndarray)
                 except ValueError:
                     pass
             self.axs[0].imshow(RGB_img)
