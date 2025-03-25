@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from superqt import QRangeSlider, QLabeledRangeSlider
 from qtpy.QtCore import Qt
 
-from CustomElement import CustomCanvas,CustomToolbar
+from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider
 from utiles import mean_spectre_of_cluster
 
 import re
@@ -52,6 +52,8 @@ class KMeansApp(QMainWindow):
         self.second_cluster_map = None
         self.wl_min = None
         self.wl_max = None
+        self.i_min = None
+        self.i_max = None
   
 
 
@@ -103,20 +105,11 @@ class KMeansApp(QMainWindow):
         
 
         # Double slider
-        slider_layout = QHBoxLayout(self)
-        self.slider = QRangeSlider(Qt.Orientation.Horizontal)
-        self.slider.setValue((0, 10))
-        # self.slider.setTickPosition(QSlider.TickPosition.TicksAbove)
-        # self.slider.setSingleStep(2)                    #   to-do modifier pour ne pas avoir de valeur en dur
-        # self.slider.setTickInterval(10)
-        self.wl_min_label = QLabel("0")
-        self.wl_max_label = QLabel("10")
-        slider_layout.addWidget(self.wl_min_label)
-        slider_layout.addWidget(self.slider)
 
-        slider_layout.addWidget(self.wl_max_label)
-        layout.layout().addLayout(slider_layout)
-        self.slider.slidersMoved.connect(self.slider_value_changed) 
+        self.slider_widget = CustomWidgetRangeSlider()
+        self.slider_widget.range_slider.sliderReleased.connect(self.slider_value_changed) 
+        self.slider_widget.range_slider.sliderReleased.connect(self.set_param_has_changed) 
+        layout.layout().addWidget(self.slider_widget)
 
         # connecte les text box pour mettre le flag 
         self.n_clusters_input.textChanged.connect(self.set_param_has_changed)  
@@ -148,25 +141,19 @@ class KMeansApp(QMainWindow):
         self.axs[1].set_title("spectrum")
         self.canvas.legend_obj[0] = None # we make sure the legend objet get reseted
         self.display_image()
-        self.slider.valueChanged.disconnect()
-        self.slider.setRange(self.wl_min,self.wl_max)               #
-        self.slider.setValue((self.wl_min,self.wl_max))             # Configure le slider
+        self.slider_widget.setWavelenghts(self.wavelengths)
         self.canvas.draw()
     
 
     def slider_value_changed(self, value):
         """Update labels and restrict slider movement to allowed values."""
-        
-        min_index, max_index = value  # Get slider positions
-        min_index = int(min_index-self.wl_min)
-        max_index = int(max_index-self.wl_max)
-        min_value, max_value = int(self.wavelengths[min_index]), int(self.wavelengths[max_index])  # Map indices to values
-        self.wl_min_label.setText("{}".format(min_value))
-        self.wl_max_label.setText("{}".format(max_value))
-        """Reduit l'étude des clustering aux valeurs indiqués"""
+        self.wl_min, self.wl_max= value  # Get slider positions
         if self.file_path :
-            self.data_img = sp.open_image(self.file_path).load()[:,:,min_index:max_index]
+            self.data_img = sp.open_image(self.file_path).load()[:,:,self.wl_min:self.wl_max]
             self.set_param_has_changed()
+            self.wavelengths = self.original_wavelengths[self.wl_min:self.wl_max]
+            print("image data cropped between ",self.wavelengths[0]," and ", self.wavelengths[-1])
+
 
 
     
@@ -187,10 +174,10 @@ class KMeansApp(QMainWindow):
                     if match:
                         print("in match")
                         # Convert values to a float list
-                        self.wavelengths = [float(w.strip()) for w in match.group(1).split(",")]
+                        self.original_wavelengths = [float(w.strip()) for w in match.group(1).split(",")]
+                        self.wavelengths = self.original_wavelengths
                     else:
                         self.wavelengths = [self.wl_min + 2 * i for i in range(self.data_img.shape[2])]
-                    
         return 
 
 

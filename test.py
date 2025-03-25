@@ -1,39 +1,45 @@
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel
+from PySide6.QtCore import Signal
 from superqt import QRangeSlider
-import numpy as np
+
+class CustomQRangeSlider(QRangeSlider):
+    """Custom QRangeSlider that emits a signal when the slider is released."""
+    
+    sliderReleased = Signal(tuple)  # Define a custom signal that sends the slider values
+
+    def mouseReleaseEvent(self, event):
+        """Detects when the user releases the slider and emits the custom signal."""
+        super().mouseReleaseEvent(event)  # Call the default behavior
+        self.sliderReleased.emit(self.value())  # Emit signal with the current values
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("QRangeSlider with Labels & Value Restriction")
+        self.setWindowTitle("Custom QRangeSlider with sliderReleased Signal")
 
         # Create central widget and layout
         central_widget = QWidget()
         layout = QVBoxLayout(central_widget)
 
-        # Allowed values for the slider (custom steps)
-        self.allowed_values = np.array([402, 420, 450, 500, 600, 700, 800, 900, 998])
+        # Create a Custom QRangeSlider
+        self.slider = CustomQRangeSlider()
+        self.slider.setRange(0, 100)  # Set min & max values
+        self.slider.setValue((20, 80))  # Set initial range
 
-        # Create a QRangeSlider
-        self.slider = QRangeSlider()
-        self.slider.setRange(0, len(self.allowed_values) - 1)  # Slider moves in index positions
-        self.slider.setValue((0, len(self.allowed_values) - 1))  # Default to min & max index
+        # Label to show the released range
+        self.label = QLabel(f"Released Range: {self.slider.value()}")
 
-        # Labels to show the current values
-        self.label = QLabel("Range: {} - {}".format(self.allowed_values[0], self.allowed_values[-1]))
-
-        # Connect slider change event
-        self.slider.valueChanged.connect(self.update_labels)
+        # Connect the custom signal to update the label
+        self.slider.sliderReleased.connect(self.on_slider_released)
 
         layout.addWidget(self.slider)
         layout.addWidget(self.label)
         self.setCentralWidget(central_widget)
 
-    def update_labels(self, value):
-        """Update labels and restrict slider movement to allowed values."""
-        min_index, max_index = value  # Get slider positions
-        min_value, max_value = self.allowed_values[min_index], self.allowed_values[max_index]  # Map indices to values
-        self.label.setText(f"Range: {min_value} - {max_value}")
+    def on_slider_released(self, value):
+        """Update the label when the slider is released."""
+        self.label.setText(f"Released Range: {value}")
+        print(f"Slider released at: {value}")  # Debugging output
 
 if __name__ == "__main__":
     app = QApplication([])
