@@ -14,7 +14,7 @@ from superqt import QRangeSlider, QLabeledRangeSlider
 from qtpy.QtCore import Qt
 
 from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider
-from utiles import mean_spectre_of_cluster
+from utiles import mean_spectre_of_cluster, custom_clear
 
 import re
 
@@ -50,10 +50,10 @@ class KMeansApp(QMainWindow):
         self.data_img = None
         self.first_cluster_map = None
         self.second_cluster_map = None
-        self.wl_min = None
-        self.wl_max = None
-        self.i_min = None
-        self.i_max = None
+        self.const_wl_min = None
+        self.wl_min_cursor = None
+        self.wl_max_cursor = None
+
   
 
 
@@ -145,10 +145,9 @@ class KMeansApp(QMainWindow):
             self.file_label.setText(f"Fichier : {self.file_path}")
             self.data_img = sp.open_image(self.file_path).load()
             self.extract_hdr_info()
-        self.axs[0].clear()
-        self.axs[1].clear()
+        custom_clear(self.axs[0])
+        custom_clear(self.axs[1])
         self.axs[1].set_title("spectrum")
-        self.canvas.legend_obj[0] = None # we make sure the legend objet get reseted
         self.display_image()
         self.slider_widget.setWavelenghts(self.wavelengths)
         self.canvas.draw()
@@ -156,25 +155,16 @@ class KMeansApp(QMainWindow):
 
     def slider_value_changed(self, value):
         """Restreint la valeur de data_img et wavelenght aux longeurs d'ondes compris entre le min et le max"""
-        self.wl_min, self.wl_max= value  # Get slider positions
+        self.wl_min_cursor, self.wl_max_cursor= value  # Get slider positions
         if self.file_path :
-            self.data_img = sp.open_image(self.file_path).load()[:,:,self.wl_min:self.wl_max]
+            self.data_img = sp.open_image(self.file_path).load()[:,:,self.wl_min_cursor:self.wl_max_cursor]
             self.set_param_has_changed()
-            self.wavelengths = self.original_wavelengths[self.wl_min:self.wl_max]
+            self.wavelengths = self.original_wavelengths[self.wl_min_cursor:self.wl_max_cursor]
             # print("image data cropped between ",self.wavelengths[0]," and ", self.wavelengths[-1])
-
-
 
     
     def extract_hdr_info(self):
         """Extract wlMin and wlMax from an ENVI header file."""
-        with open(self.file_path, "r") as file:
-            for line in file:
-                if line.startswith("wlMin"):
-                    self.wl_min = int(line.split("=")[-1].strip())  # Extract value
-                elif line.startswith("wlMax"):
-                    self.wl_max = int(line.split("=")[-1].strip())  # Extract value
-
         with open(self.file_path, "r") as file:
             for line in file:
                 if line.startswith("wavelength ="):
@@ -183,25 +173,28 @@ class KMeansApp(QMainWindow):
                         # Convert values to a float list
                         self.original_wavelengths = [float(w.strip()) for w in match.group(1).split(",")]
                         self.wavelengths = self.original_wavelengths
-                    else:
-                        self.wavelengths = [self.wl_min + 2 * i for i in range(self.data_img.shape[2])]
-        return 
+                        self.wl_max_cursor = self.wavelengths[0]
+                        self.wl_min_cursor = self.wavelengths[-1]
+            return 
 
 
     def display_image(self):
         if self.data_img is not None:
-            self.axs[0].clear()
-            R = round((700-self.wl_min)/2) 
-            G = round((550-self.wl_min)/2)
-            B = round((450-self.wl_min)/2)
-            RGB_img = self.data_img[:,:,(R,G,B)]
+            custom_clear(self.axs[0])
+            if self.wl_min_cursor >= 450:
+                R = round((700-self.wl_min_cursor)/2) 
+                G = round((550-self.wl_min_cursor)/2)
+                B = round((450-self.wl_min_cursor)/2)
+                RGB_img = self.data_img[:,:,(R,G,B)]
 
-            if RGB_img.max()*2 < 1:
-                try:
-                    RGB_img = 2*RGB_img.view(np.ndarray)
-                except ValueError:
-                    pass
-            self.axs[0].imshow(RGB_img)
+                if RGB_img.max()*2 < 1:
+                    try:
+                        RGB_img = 2*RGB_img.view(np.ndarray)
+                    except ValueError:
+                        pass
+                self.axs[0].imshow(RGB_img)
+            else:
+                print("RGB values not supported")
             self.axs[0].axis('off')
             self.axs[0].set_title("hyperspectral image")
             self.canvas.draw()
@@ -220,7 +213,7 @@ class KMeansApp(QMainWindow):
                 print("first kmean executed in:", time()-t1)
                 self.param_has_changed_fkm = False
                 self.param_has_changed_skm = True       # met la variable a True pour recharger le second Kmean
-            self.axs[0].clear()
+            custom_clear(self.axs[0])
             self.axs[0].set_title("hyperspectral image")
             self.axs[0].imshow(self.first_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
@@ -247,7 +240,7 @@ class KMeansApp(QMainWindow):
                 self.param_has_changed_skm = False
                 self.param_has_changed_spectra = True       # met la variable a True pour recharger le display spectra
             
-            self.axs[0].clear()
+            custom_clear(self.axs[0])
             self.axs[0].set_title("hyperspectral image")
             self.axs[0].imshow(self.second_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
@@ -255,10 +248,10 @@ class KMeansApp(QMainWindow):
     
 
     def display_spectra(self):
+
         if self.data_img is not None and self.second_cluster_map is not None and self.param_has_changed_spectra:
-            self.axs[1].clear()     # Clear the right graph
+            custom_clear(self.axs[1])     # Clear the right graph
             self.axs[1].set_title("spectrum")
-            self.canvas.legend_obj[0] = None
             cmap = plt.get_cmap("nipy_spectral")
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
             # Store plotted lines

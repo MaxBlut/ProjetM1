@@ -49,3 +49,20 @@ def mean_spectre_of_cluster(cluster_map, data, selected_cluster_value=1):
     mask = cluster_map == selected_cluster_value
     avg_spectrum = np.mean(data[mask, :], axis=0)
     return avg_spectrum
+
+
+
+# Extend the Axes class with `set_legend` and `get_legend`
+def set_legend(ax, legend):
+    """Manually sets a custom legend reference on the axis."""
+    ax._custom_legend = legend
+
+
+def get_legend(ax):
+    """Returns the stored custom legend if it exists, otherwise None."""
+    return getattr(ax, "_custom_legend", None)
+
+
+def custom_clear(ax):
+    ax.clear()
+    set_legend(ax, None)
