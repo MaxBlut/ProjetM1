@@ -7,8 +7,9 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtGui import QFont
 from superqt import QRangeSlider
 import main as m
+import os
 import spectral as sp
-
+import time
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from PIL import Image
@@ -251,7 +252,7 @@ class MatplotlibImage(QWidget):
         self.fichier_selec.setText(self.file_path_noload)  # Afficher le chemin dans l'UI
         
         # Charger le fichier HDR
-        self.file_path = sp.open_image(self.file_path_noload)
+        self.file_path = sp.open_image(os.path.basename(self.file_path_noload))
         self.img_data = self.file_path.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_path.metadata  # Récupérer les métadonnées
         self.left_label = QLabel(f"{self.metadata['wavelenght'][0]} nm")
@@ -644,14 +645,22 @@ class MatplotlibImage_3slid(QWidget):
 
 
     def update_image(self):
+        start_time = time.time()
+
         wl_r = self.slid_r.value()
         wl_g = self.slid_g.value()
         wl_b = self.slid_b.value()
         # img_data = m.calcule_rgb_3slid(wl_r, wl_g, wl_b, self.file_data)
-        self.Img_ax.clear()
-        self.Img_ax.imshow(self.file_data[:,:,(wl_r,wl_g,wl_b)])
-        self.Img_ax.axis('off')
-        self.canvas.draw()
+        # self.Img_ax.clear()
+        # self.Img_ax.imshow(self.file_data[:,:,(wl_r,wl_g,wl_b)])
+        self.imgopt.set_data(self.file_data[:, :, (wl_r, wl_g, wl_b)])
+
+        # self.Img_ax.axis('off')
+        # self.canvas.draw()
+        self.canvas.draw_idle()
+        print(f"Temps de mise à jour: {time.time() - start_time} secondes")
+
+
 
     def import_file(self):
         options = QFileDialog.Options()
@@ -662,12 +671,14 @@ class MatplotlibImage_3slid(QWidget):
             print("Aucun fichier sélectionné.")
             return
 
-        self.fichier_selec.setText(self.file_path_noload)  # Afficher le chemin dans l'UI
+        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
         
         # Charger le fichier HDR
         self.file_data = sp.open_image(self.file_path_noload)
         self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_data.metadata  # Récupérer les métadonnées
+        self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
+        self.Img_ax.axis('off')
 
         self.slid_r.setRange(0, int(self.metadata["bands"])-1)
         self.slid_g.setRange(0, int(self.metadata["bands"])-1)
