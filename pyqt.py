@@ -5,8 +5,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, Q
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from PySide6.QtGui import QFont
-#from qtrangeslider import QLabeledRangeSlider, QDoubleSlider
-from superqt import QLabeledRangeSlider
+from superqt import QRangeSlider
 import main as m
 import spectral as sp
 
@@ -14,7 +13,6 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from PIL import Image
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QApplication
 
 # Désactiver le mode interactif de matplotlib
 plt.ioff()
@@ -190,12 +188,13 @@ class MatplotlibImage(QWidget):
         right_layout.addWidget(self.mode_combo)
         right_layout.addWidget(self.text_edit)
         right_layout.addWidget(self.save_button)
-        # right_layout.addStretch()  # Ajoute un espace flexible en bas
 
-        self.qlrs = QLabeledRangeSlider(Qt.Horizontal)
-        self.qlrs.valueChanged.connect(lambda e: print("QLabeledRangeSlider valueChanged", e))
-        self.qlrs.setValue((20, 60))
+                # Initialisation du QRangeSlider via la classe RangeSliderInitializer
+        self.slider_initializer = m.RangeSliderInitializer()
+        self.qlrs = self.slider_initializer.get_slider()
         right_layout.addWidget(self.qlrs)
+        right_layout.addStretch()  # Ajoute un espace flexible en bas
+
 
         # Disposition globale : Image + contrôles à gauche | Mode combo & sauvegarde à droite
         main_layout = QHBoxLayout()
@@ -242,9 +241,24 @@ class MatplotlibImage(QWidget):
 
     def import_file(self):
         options = QFileDialog.Options()
-        self.file_path, _ = QFileDialog.getOpenFileName(self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
-        self.fichier_selec.setText(self.file_path)
-        self.file_path = sp.open_image(self.file_path)
+        self.file_path_noload, _ = QFileDialog.getOpenFileName(
+            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
+
+        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
+            print("Aucun fichier sélectionné.")
+            return
+
+        self.fichier_selec.setText(self.file_path_noload)  # Afficher le chemin dans l'UI
+        
+        # Charger le fichier HDR
+        self.file_path = sp.open_image(self.file_path_noload)
+        self.img_data = self.file_path.load()  # Charger en tant que tableau NumPy
+        self.metadata = self.file_path.metadata  # Récupérer les métadonnées
+        self.left_label = QLabel(f"{self.metadata['wavelenght'][0]} nm")
+        self.right_label = QLabel(f"{self.metadata['wavelenght'][-1]} nm")
+        self.slider.setRange(float(self.metadata["wavelenght"][0]), float(self.metadata["wavelenght"][-1]))
+
+
 
     def save_as_pdf(self):
         if not self.file_path:
@@ -442,31 +456,31 @@ class MatplotlibImage_3slid(QWidget):
 
         #SLIDER 
         self.slid_r = QSlider(Qt.Horizontal)
-        self.slid_r.setRange(402, 998)
+        self.slid_r.setRange(0, 0)
         self.slid_r.setTickPosition(QSlider.TicksBelow)
         self.slid_r.setTickInterval(2)
         self.slid_r.setSingleStep(2)
         self.slid_r.valueChanged.connect(self.update_slid_text)
         self.slid_r.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        self.slid_r.sliderReleased.connect(self.update_spectrum)
+        #self.slid_r.sliderReleased.connect(self.update_spectrum)
 
         self.slid_g = QSlider(Qt.Horizontal)
-        self.slid_g.setRange(402, 998)
+        self.slid_g.setRange(0,0)
         self.slid_g.setTickPosition(QSlider.TicksBelow)
         self.slid_g.setTickInterval(2)
         self.slid_g.setSingleStep(2)
         self.slid_g.valueChanged.connect(self.update_slid_text)
         self.slid_g.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        self.slid_g.sliderReleased.connect(self.update_spectrum)
+        #self.slid_g.sliderReleased.connect(self.update_spectrum)
 
         self.slid_b = QSlider(Qt.Horizontal)
-        self.slid_b.setRange(402, 998)
+        self.slid_b.setRange(0, 0)
         self.slid_b.setTickPosition(QSlider.TicksBelow)
         self.slid_b.setTickInterval(2)
         self.slid_b.setSingleStep(2)
         self.slid_b.valueChanged.connect(self.update_slid_text)
         self.slid_b.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        self.slid_b.sliderReleased.connect(self.update_spectrum)
+        #self.slid_b.sliderReleased.connect(self.update_spectrum)
 
         StyleSheet=("""
     QSlider::groove:horizontal {
@@ -525,15 +539,15 @@ class MatplotlibImage_3slid(QWidget):
         self.b_label.setStyleSheet("color: blue; font-size: 20px; font-weight: bold;")
 
         # LABELS AU DSSUS --------------------------------
-        self.value_r = QLabel("402 nm")
+        self.value_r = QLabel(" veuillez importer un fichier")
         self.value_r.setAlignment(Qt.AlignCenter)
         self.value_r.setStyleSheet("color: white; font-size: 16px;")
 
-        self.value_g = QLabel("402 nm")
+        self.value_g = QLabel("veuillez importer un fichier")
         self.value_g.setAlignment(Qt.AlignCenter)
         self.value_g.setStyleSheet("color: white; font-size: 16px;")
 
-        self.value_b = QLabel("402 nm")
+        self.value_b = QLabel("veuillez importer un fichier")
         self.value_b.setAlignment(Qt.AlignCenter)
         self.value_b.setStyleSheet("color: white; font-size: 16px;")
 
@@ -575,11 +589,6 @@ class MatplotlibImage_3slid(QWidget):
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setStyleSheet("color: white; font-size: 30px;")
         self.label.setFont(font)
-        
-        self.left_label = QLabel("402 nm")
-        self.left_label.setStyleSheet("color: white; font-size: 20px;")
-        self.right_label = QLabel("998 nm")
-        self.right_label.setStyleSheet("color: white; font-size: 20px;")
 
 
         #LAYOUTS---------------------------------------------
@@ -599,7 +608,7 @@ class MatplotlibImage_3slid(QWidget):
         self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
         self.spectrum_ax.set_ylabel("Intensité", color='black')
-        self.spectrum_ax.set_xlim(402, 998)
+        self.spectrum_ax.set_xlim(0, 0)
         self.spectrum_ax.tick_params(axis='x', colors='black')
         self.spectrum_ax.tick_params(axis='y', colors='black')
         # Graphique vide au départ (sans données)
@@ -624,51 +633,64 @@ class MatplotlibImage_3slid(QWidget):
         wl_b = self.slid_b.value()
 
         # Mettre à jour le texte des labels
-        self.value_r.setText(f"{wl_r} nm")
-        self.value_g.setText(f"{wl_g} nm")
-        self.value_b.setText(f"{wl_b} nm")
+        self.value_r.setText(f"{self.metadata['wavelength'][wl_r]} nm")
+        self.value_g.setText(f"{self.metadata['wavelength'][wl_g]} nm")
+        self.value_b.setText(f"{self.metadata['wavelength'][wl_b]} nm")
 
         # Afficher la valeur des sliders sous forme de tooltip
-        self.slid_r.setToolTip(f"{wl_r} nm")
-        self.slid_g.setToolTip(f"{wl_g} nm")
-        self.slid_b.setToolTip(f"{wl_b} nm")
+        self.slid_r.setToolTip(f"{self.metadata['wavelength'][wl_r]} nm")
+        self.slid_g.setToolTip(f"{self.metadata['wavelength'][wl_g]} nm")
+        self.slid_b.setToolTip(f"{self.metadata['wavelength'][wl_b]} nm")
 
 
     def update_image(self):
         wl_r = self.slid_r.value()
         wl_g = self.slid_g.value()
         wl_b = self.slid_b.value()
-        img_data = m.calcule_rgb_3slid(wl_r, wl_g, wl_b, self.file_path)
-        if img_data is None:
-            print("Erreur : img_data est None")
-            return  # ou autre traitement d'erreur
-        img_array = np.array(img_data, dtype=np.uint8)
+        # img_data = m.calcule_rgb_3slid(wl_r, wl_g, wl_b, self.file_data)
         self.Img_ax.clear()
-        self.Img_ax.imshow(img_array)
+        self.Img_ax.imshow(self.file_data[:,:,(wl_r,wl_g,wl_b)])
         self.Img_ax.axis('off')
         self.canvas.draw()
 
     def import_file(self):
         options = QFileDialog.Options()
-        self.file_path, _ = QFileDialog.getOpenFileName(self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
-        self.fichier_selec.setText(self.file_path)
-        self.file_path = sp.open_image(self.file_path)
-        self.img_data = sp.open_image(self.file_path).load()
-        self.metadata = sp.open_image(self.file_path).metadata
+        self.file_path_noload, _ = QFileDialog.getOpenFileName(
+            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
+
+        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
+            print("Aucun fichier sélectionné.")
+            return
+
+        self.fichier_selec.setText(self.file_path_noload)  # Afficher le chemin dans l'UI
+        
+        # Charger le fichier HDR
+        self.file_data = sp.open_image(self.file_path_noload)
+        self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
+        self.metadata = self.file_data.metadata  # Récupérer les métadonnées
+
+        self.slid_r.setRange(0, int(self.metadata["bands"])-1)
+        self.slid_g.setRange(0, int(self.metadata["bands"])-1)
+        self.slid_b.setRange(0, int(self.metadata["bands"])-1)
+
+        self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+
+
+
     
     def update_spectrum(self,  wavelengths, reflectance_values):
         # Récupérer les valeurs des sliders (longueurs d'onde)
-        self.spectre_ax.clear()
-        self.spectre_ax.set_xlabel("Longueur d'onde (nm)")
-        self.spectre_ax.set_ylabel("Réflectance")
-        self.spectre_ax.set_ylim(0, 1)
+        self.spectrum_ax.clear()
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)")
+        self.spectrum_ax.set_ylabel("Réflectance")
+        self.spectrum_ax.set_ylim(0, 1)
 
         # Création du diagramme en barres
         colors = ['red', 'green', 'blue']
-        self.spectre_ax.bar(wavelengths.values(), reflectance_values, color=colors, width=20)
+        self.spectrum_ax.bar(wavelengths, reflectance_values, color=colors, width=20)
 
-        self.spectre_ax.set_xticks(list(wavelengths.values()))  # Afficher les longueurs d'onde
-        self.spectre_canvas.draw()  # Rafraîchir l'affichage
+        self.spectrum_ax.set_xticks(wavelengths)  # Afficher les longueurs d'onde
+        self.spectrum_canvas.draw()  # Rafraîchir l'affichage
 
     def on_click(self, event):
         if self.img_data is None or self.metadata is None:
@@ -681,17 +703,24 @@ class MatplotlibImage_3slid(QWidget):
         x, y = int(event.xdata), int(event.ydata)
         print(f"Pixel cliqué : ({x}, {y})")
 
+        # Vérification que les longueurs d'onde existent
+        if "wavelength" not in self.metadata:
+            print("Métadonnées de longueurs d'onde introuvables.")
+            return
+
         # Récupération des longueurs d'onde choisies
-        wavelengths = [self.slid_r.value(), self.slid_g.value(), self.slid_b.value()]
+        wavelengths = [self.metadata["wavelenght"][self.slid_r.value()],self.metadata["wavelenght"][self.slid_g.value()], self.metadata["wavelenght"][self.slid_b.value()]]
         reflectance_values = []
-        
-        # Extraction des valeurs de réflectance
+
+        # Conversion des longueurs d'onde en indices de bande
+        wavelengths_available = np.array(self.metadata["wavelength"], dtype=float)
         for wl in wavelengths:
-            idx = np.abs(np.array(self.metadata['wavelength'], dtype=float) - wl).argmin()
+            idx = np.abs(wavelengths_available - wl).argmin()
             reflectance_values.append(self.img_data[y, x, idx])
 
         # Mise à jour de l'affichage
         self.update_spectrum(wavelengths, reflectance_values)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -756,8 +785,4 @@ if __name__ == "__main__":
         app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    qlrs = QLabeledRangeSlider(Qt.Horizontal)
-    qlrs.valueChanged.connect(lambda e: print("QLabeledRangeSlider valueChanged", e))
-    qlrs.setValue((20, 60))
-    qlrs.show()
     sys.exit(app.exec())
