@@ -1,10 +1,11 @@
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit, QSplitter, QProgressBar, QCheckBox, QRadioButton, QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QFileDialog
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QThread, Signal
+from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
 import main as m
 import os
@@ -14,6 +15,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from PIL import Image
 from qtpy.QtCore import Qt
+
+
 
 # Désactiver le mode interactif de matplotlib
 plt.ioff()
@@ -191,9 +194,7 @@ class MatplotlibImage(QWidget):
         right_layout.addWidget(self.save_button)
 
                 # Initialisation du QRangeSlider via la classe RangeSliderInitializer
-        self.slider_initializer = m.RangeSliderInitializer()
-        self.qlrs = self.slider_initializer.get_slider()
-        right_layout.addWidget(self.qlrs)
+    
         right_layout.addStretch()  # Ajoute un espace flexible en bas
 
 
@@ -435,16 +436,17 @@ class MatplotlibImage_3slid(QWidget):
     def __init__(self, RGB_img):
         super().__init__()
         self.file_path = None
-        # self.img = sp.open_image("feuille_250624_ref.hdr")  # Charger l'image hyperspectrale
-        # if self.img is None or len(self.img.shape) != 3:
-        #     raise ValueError("L'image hyperspectrale n'a pas été chargée correctement !")
+
         self.setStyleSheet("background-color: #2E2E2E;")
         
-        self.figure, self.Img_ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+        self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2,figsize=(15, 10), gridspec_kw={'width_ratios': [3, 2]})
         self.canvas = FigureCanvas(self.figure)
         self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
         self.Img_ax.set_position([0, 0, 1, 1])
         self.figure.patch.set_facecolor('#2E2E2E')
+
+        self.Img_ax.set_position([0, 0, 0.6, 1])  # Image sur 60% de la largeur
+        self.spectrum_ax.set_position([0.65, 0.1, 0.35, 0.8])  # Spectre sur 40% avec un petit décalage
         self.canvas.mpl_connect('button_press_event', self.on_click)
 
 
@@ -527,7 +529,7 @@ class MatplotlibImage_3slid(QWidget):
             }
         """)
 
-
+        
 
         # Création des labels
         self.r_label = QLabel("R")
@@ -591,11 +593,20 @@ class MatplotlibImage_3slid(QWidget):
         self.label.setStyleSheet("color: white; font-size: 30px;")
         self.label.setFont(font)
 
-
-        #LAYOUTS---------------------------------------------
+        # Créer une animation pour le chargement (exemple avec un gif)
+        self.loading_gif = QLabel(self)
+        self.loading_gif.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.movie = QMovie("amalie-steiness.gif")
+        self.loading_gif.setMovie(self.movie)
+        #LAYOUTS---------------------------------
+        # ------------
         import_layout = QHBoxLayout()
         import_layout.addWidget(self.import_button)
         import_layout.addWidget(self.fichier_selec)
+        import_layout.addWidget(self.loading_gif)
+
+        import_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
+
 
         img_layout = QVBoxLayout()
         img_layout.addLayout(import_layout)
@@ -603,10 +614,11 @@ class MatplotlibImage_3slid(QWidget):
         img_layout.addWidget(self.canvas)
         img_layout.addLayout(slider_layout)
         img_layout.addWidget(self.label)
+        img_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
 
         #Création de l'affichage du spectre
-        self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
-        self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
+        # self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
+        # self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
         self.spectrum_ax.set_ylabel("Intensité", color='black')
         self.spectrum_ax.set_xlim(0, 0)
@@ -615,14 +627,12 @@ class MatplotlibImage_3slid(QWidget):
         # Graphique vide au départ (sans données)
         self.spectrum_ax.bar([], [], color=['red', 'green', 'blue'])  # Barres vides
         self.spectrum_ax.set_title("Réflectance en fonction de la longueur d'onde")
-        self.spectrum_canvas.draw()
+        self.canvas.draw()
 
 
-        main_layout = QHBoxLayout()
-        main_layout.addLayout(img_layout, 1)
-        main_layout.addWidget(self.spectrum_canvas, 1)
 
-        self.setLayout(main_layout)
+
+        self.setLayout(img_layout)
         self.Img_ax.imshow(RGB_img)
         self.Img_ax.axis('off')
         self.canvas.draw()
@@ -670,9 +680,19 @@ class MatplotlibImage_3slid(QWidget):
         if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
             print("Aucun fichier sélectionné.")
             return
+        self.fichier_selec.setText("Chargement en cours...")  # Afficher le chemin dans l'UI
+        # Afficher l'animation de chargement
+        self.loading_gif.show()
+        self.movie.start()
+
+        # Simuler le temps de chargement (remplacer par votre processus réel de chargement)
+        time.sleep(2)#     
 
         self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
         
+        # Stopper l'animation après le chargement
+        self.movie.stop()
+        self.loading_gif.hide()
         # Charger le fichier HDR
         self.file_data = sp.open_image(self.file_path_noload)
         self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
@@ -686,22 +706,25 @@ class MatplotlibImage_3slid(QWidget):
 
         self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
 
-
-
     
     def update_spectrum(self,  wavelengths, reflectance_values):
-        # Récupérer les valeurs des sliders (longueurs d'onde)
         self.spectrum_ax.clear()
         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)")
         self.spectrum_ax.set_ylabel("Réflectance")
         self.spectrum_ax.set_ylim(0, 1)
 
-        # Création du diagramme en barres
-        colors = ['red', 'green', 'blue']
-        self.spectrum_ax.bar(wavelengths, reflectance_values, color=colors, width=20)
+        # Positions équidistantes pour les barres
+        x_positions = np.arange(len(wavelengths))  # [0, 1, 2] pour 3 couleurs
 
-        self.spectrum_ax.set_xticks(wavelengths)  # Afficher les longueurs d'onde
-        self.spectrum_canvas.draw()  # Rafraîchir l'affichage
+        # Création du diagramme en barres avec largeur fine
+        colors = ['red', 'green', 'blue']
+        self.spectrum_ax.bar(x_positions, reflectance_values, color=colors, width=0.2)
+
+        # Remettre les vraies longueurs d'onde en labels sur l'axe X
+        self.spectrum_ax.set_xticks(x_positions)
+        self.spectrum_ax.set_xticklabels(wavelengths)
+
+        self.canvas.draw()  # Rafraîchir l'affichage
 
     def on_click(self, event):
         if self.img_data is None or self.metadata is None:
@@ -720,13 +743,13 @@ class MatplotlibImage_3slid(QWidget):
             return
 
         # Récupération des longueurs d'onde choisies
-        wavelengths = [self.metadata["wavelenght"][self.slid_r.value()],self.metadata["wavelenght"][self.slid_g.value()], self.metadata["wavelenght"][self.slid_b.value()]]
+        wavelengths = [self.metadata['wavelength'][self.slid_r.value()],self.metadata['wavelength'][self.slid_g.value()], self.metadata['wavelength'][self.slid_b.value()]]
         reflectance_values = []
 
         # Conversion des longueurs d'onde en indices de bande
-        wavelengths_available = np.array(self.metadata["wavelength"], dtype=float)
+        wavelengths_available = np.array(self.metadata['wavelength'], dtype=float)
         for wl in wavelengths:
-            idx = np.abs(wavelengths_available - wl).argmin()
+            idx = np.abs(wavelengths_available - float(wl)).argmin()
             reflectance_values.append(self.img_data[y, x, idx])
 
         # Mise à jour de l'affichage
