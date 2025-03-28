@@ -3,24 +3,19 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 from qtpy.QtCore import Qt
-
+import signal
 from superqt import QRangeSlider
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
+from PySide6.QtCore import Signal, Slot
+from PySide6.QtWidgets import QLabel, QHBoxLayout
 # Set the envi_support_nonlowercase_params to True to avoid an error message 
 sp.settings.envi_support_nonlowercase_params = True
+
 
 wlMin = 402
 wlMax = 998
 #reflectance_image = sp.open_image("feuille_250624_ref.hdr")
-class RangeSliderInitializer:
-    def __init__(self):
-        self.qlrs = QRangeSlider(Qt.Horizontal)
-        self.qlrs.setRange(402, 998)
-        self.qlrs.setValue((402, 998))
-        
 
-    def get_slider(self):
-        return self.qlrs
 
 def nmToRGB(wavelength):
     # This function takes a wavelength value as an input and returns the corresponding RGB values
@@ -189,39 +184,139 @@ def calcule_rgb_plage2(wl_min, wl_max):
 
     return true_rgb_img.astype(np.uint8)  # Convertir en entiers 8 bits pour l'affichage
 
-def calcule_rgb_plage(img, wl_min, wl_max):
-    """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde de manière optimisée."""
+
+def calcule_rgb_plage(img, metadata, wl_min_idx, wl_max_idx):
+    """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde définie par les indices."""
     
     nblines, nbcolones, nb_bandes = img.shape
-
-    # Calculer les indices des longueurs d'onde
-    indices = [(wl, round((wl - 400) / 2)) for wl in range(wl_min, wl_max + 1, 2)]
-    indices = [(wl, k) for wl, k in indices if 0 <= k < nb_bandes]
-
-    if not indices:
+    wavelengths = np.array(metadata['wavelength'], dtype=float)
+    
+    # Vérifier que les indices sont valides
+    if not (0 <= wl_min_idx < len(wavelengths) and 0 <= wl_max_idx < len(wavelengths)):
+        print("Indices de longueur d'onde hors limites.")
+        return None
+    
+    # Sélectionner les longueurs d'onde et les indices correspondants
+    selected_wls = wavelengths[wl_min_idx:wl_max_idx + 1]
+    selected_indices = list(range(wl_min_idx, wl_max_idx + 1))
+    
+    if not selected_indices:
         print("Aucune longueur d'onde valide dans la plage donnée.")
         return None
-
+    
     # Initialiser les matrices RGB
     true_rgb_img = np.zeros((nblines, nbcolones, 3), dtype=np.float32)
-
+    
     # Charger toutes les bandes en une seule fois pour accélérer la lecture
-    all_bands = np.array([img.read_band(k) for _, k in indices])
-
+    all_bands = np.array([img.read_band(k) for k in selected_indices])
+    
     # Calcul des poids RGB
-    rgb_weights = np.array([nmToRGB(wl) for wl, _ in indices])
-
+    rgb_weights = np.array([nmToRGB(wl) for wl in selected_wls])
+    
     # Appliquer les poids RGB via un produit matriciel
     true_rgb_img[:, :, 0] = np.tensordot(all_bands, rgb_weights[:, 0], axes=(0, 0))
     true_rgb_img[:, :, 1] = np.tensordot(all_bands, rgb_weights[:, 1], axes=(0, 0))
     true_rgb_img[:, :, 2] = np.tensordot(all_bands, rgb_weights[:, 2], axes=(0, 0))
-
+    
     # Normalisation
     true_rgb_img -= true_rgb_img.min()
     true_rgb_img /= true_rgb_img.max()
     true_rgb_img *= 255
-
+    
     return true_rgb_img.astype(np.uint8)
+
+# def calcule_rgb_plage(img, wl_min, wl_max):
+#     """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde de manière optimisée."""
+    
+#     nblines, nbcolones, nb_bandes = img.shape
+
+#     # Calculer les indices des longueurs d'onde
+#     indices = [(wl, round((wl - 400) / 2)) for wl in range(wl_min, wl_max + 1, 2)]
+#     indices = [(wl, k) for wl, k in indices if 0 <= k < nb_bandes]
+
+#     if not indices:
+#         print("Aucune longueur d'onde valide dans la plage donnée.")
+#         return None
+
+#     # Initialiser les matrices RGB
+#     true_rgb_img = np.zeros((nblines, nbcolones, 3), dtype=np.float32)
+
+#     # Charger toutes les bandes en une seule fois pour accélérer la lecture
+#     all_bands = np.array([img.read_band(k) for _, k in indices])
+
+#     # Calcul des poids RGB
+#     rgb_weights = np.array([nmToRGB(wl) for wl, _ in indices])
+
+#     # Appliquer les poids RGB via un produit matriciel
+#     true_rgb_img[:, :, 0] = np.tensordot(all_bands, rgb_weights[:, 0], axes=(0, 0))
+#     true_rgb_img[:, :, 1] = np.tensordot(all_bands, rgb_weights[:, 1], axes=(0, 0))
+#     true_rgb_img[:, :, 2] = np.tensordot(all_bands, rgb_weights[:, 2], axes=(0, 0))
+
+#     # Normalisation
+#     true_rgb_img -= true_rgb_img.min()
+#     true_rgb_img /= true_rgb_img.max()
+#     true_rgb_img *= 255
+
+#     return true_rgb_img.astype(np.uint8)
+
+class CustomQRangeSlider(QRangeSlider):
+    """Custom QRangeSlider that emits a signal when the slider is released."""
+   
+    sliderReleased = Signal(tuple)  # Define a custom signal that sends the slider values
+
+    def __init__(self, orientation=Qt.Orientation.Horizontal, parent=None):
+        """Initialize with the specified orientation (default: Horizontal)."""
+        super().__init__(orientation, parent)  # Pass orientation to the parent class
+
+    def mouseReleaseEvent(self, event):
+        """Detects when the user releases the slider and emits the custom signal."""
+        super().mouseReleaseEvent(event)  # Call the default behavior
+        self.sliderReleased.emit(self.value())  # Emit signal with the current values
+
+
+
+class CustomWidgetRangeSlider(QWidget):
+    def __init__(self,parent=None):
+        super().__init__(parent)
+        self.wavelenghts = [i for i in range(10)]
+        layout = QHBoxLayout(self)
+       
+
+        self.wl_min_label = QLabel()
+        layout.addWidget(self.wl_min_label)
+        self.range_slider = CustomQRangeSlider()
+        layout.addWidget(self.range_slider)
+        self.wl_max_label = QLabel()
+        layout.addWidget(self.wl_max_label)
+
+        self.setRange(self.wavelenghts)
+        self.update_label((0,len(self.wavelenghts)-1))
+        self.range_slider.setValue((0,len(self.wavelenghts)-1))
+
+
+        self.range_slider.valueChanged.connect(self.update_label)
+
+    def update_label(self, value):
+        """Update labels and restrict slider movement to allowed values."""
+       
+        min_index, max_index = value  # Get slider positions
+        min_value, max_value = self.wavelenghts[min_index], self.wavelenghts[max_index]  # Map indices to values
+        self.wl_min_label.setText("{}".format(min_value))
+        self.wl_max_label.setText("{}".format(max_value))
+        """Reduit l'étude des clustering aux valeurs indiqués"""
+
+    def setRange(self, wavelenghts):
+        if wavelenghts:
+            self.range_slider.setRange(0,len(wavelenghts)-1)
+        else :
+            print("WARNING : wavelenght is None in CustomWidgetRangeSlider.setRange(",wavelenghts ,")")
+            self.range_slider.setRange(0,10)
+
+    def setWavelenghts(self,wavelenghts):
+        self.wavelenghts = wavelenghts
+        self.setRange(self.wavelenghts) #update the range
+        self.range_slider.setValue((0,len(wavelenghts)-1))
+
 
 def main():
     img = calcule_true_rgb_opti(550)
@@ -243,6 +338,8 @@ def main():
     # # Sauvegarde de l'image
     # image = Image.fromarray(array, mode='RGB')
     # image.save("output_image.png")
+
+
 
     return 0
 

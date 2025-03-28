@@ -98,8 +98,8 @@ class MatplotlibImage(QWidget):
 
 
         
-        self.fichier_selec = QLabel("{Aucun fichier sélectionné}")
-        self.fichier_selec.setFont(font)
+        self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
 
 
         self.import_button.setStyleSheet("""
@@ -305,12 +305,10 @@ class MatplotlibImage(QWidget):
         print(f"PDF enregistré à : {file_path}")
 
 
-class MatplotlibImage_DoubleCurseur(QWidget):
+class MatplotlibImage_DoubleCurseur2(QWidget):
     def __init__(self, RGB_img):
         super().__init__()
-        self.img = sp.open_image("feuille_250624_ref.hdr")  # Charger l'image hyperspectrale
-        if self.img is None or len(self.img.shape) != 3:
-            raise ValueError("L'image hyperspectrale n'a pas été chargée correctement !")
+        self.file_data = None
         self.setStyleSheet("background-color: #2E2E2E;")
         
         self.figure, self.Img_ax = plt.subplots(figsize=(5, 5), tight_layout=True)
@@ -365,6 +363,7 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         img_layout.addWidget(toolbar)
         img_layout.addWidget(self.canvas)
         img_layout.addLayout(slider_layout)
+
         img_layout.addWidget(self.label)
 
         #SPECTRE---------------------------------------------
@@ -405,7 +404,7 @@ class MatplotlibImage_DoubleCurseur(QWidget):
     def update_image(self):
         wl_min = self.slider_min.value()
         wl_max = self.slider_max.value()
-        img_data = m.calcule_rgb_plage(self.img, wl_min, wl_max)
+        img_data = m.calcule_rgb_plage(self.file_data, wl_min, wl_max)
         img_array = np.array(img_data, dtype=np.uint8)
         self.Img_ax.clear()
         self.Img_ax.imshow(img_array)
@@ -431,7 +430,232 @@ class MatplotlibImage_DoubleCurseur(QWidget):
             self.spectrum_ax.tick_params(axis='y', colors='black')
             self.spectrum_figure.tight_layout()
             self.spectrum_canvas.draw()
+
+    def import_file(self):
+        options = QFileDialog.Options()
+        self.file_path_noload, _ = QFileDialog.getOpenFileName(
+            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
+
+        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
+            print("Aucun fichier sélectionné.")
+            return
+        self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
+        # Afficher l'animation de chargement
+        QApplication.processEvents() 
+
         
+        # Stopper l'animation après le chargement
+        
+        self.file_data = sp.open_image(self.file_path_noload)
+        self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
+        self.metadata = self.file_data.metadata  # Récupérer les métadonnées
+        self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
+        self.Img_ax.axis('off')
+
+        img_data = m.calcule_rgb_plage(self.file_data, 0, 1)
+        img_array = np.array(img_data, dtype=np.uint8)
+        self.Img_ax.clear()
+        self.Img_ax.imshow(img_array)
+        self.Img_ax.axis('off')
+        self.canvas.draw()
+
+
+        self.slider_min.setRange(0, int(self.metadata["bands"])-1)
+        self.slider_max.setRange(0, int(self.metadata["bands"])-1)
+
+        self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+
+        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
+
+
+class MatplotlibImage_DoubleCurseur(QWidget):
+    def __init__(self, RGB_img):
+        super().__init__()
+        self.file_data = None
+        self.setStyleSheet("background-color: #2E2E2E;")
+
+        self.figure, self.Img_ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+        self.canvas = FigureCanvas(self.figure)
+        self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        self.Img_ax.set_position([0, 0, 1, 1])
+        self.figure.patch.set_facecolor('#2E2E2E')
+
+        toolbar = NavigationToolbar(self.canvas, self)
+        toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
+        for action in toolbar.actions():
+            if action.text() in ["Home", "Customize"]:
+                toolbar.removeAction(action)
+
+        
+        self.slider_widget = m.CustomWidgetRangeSlider()
+
+        self.slider_widget.range_slider.sliderReleased.connect(self.update_image)
+        self.slider_widget.range_slider.sliderReleased.connect(self.update_spectre)
+
+        
+        #LABELS---------------------------------------------
+        font = QFont("Verdana", 20, QFont.Bold)
+        self.label = QLabel("Saisir une plage de longeur d'onde")
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet("color: white; font-size: 30px;")
+        self.label.setFont(font)
+        
+        self.left_label = QLabel("402 nm")
+        self.left_label.setStyleSheet("color: white; font-size: 20px;")
+        self.right_label = QLabel("998 nm")
+        self.right_label.setStyleSheet("color: white; font-size: 20px;")
+
+        #---------------- Bouton "Importer fichier" 
+        self.import_button = QPushButton("Importer fichier")
+        self.import_button.clicked.connect(self.import_file)
+        self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
+        self.import_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3A3A3A;
+                color: white;
+                font-size: 14px;
+                border: 1px solid #555;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #4A4A4A;
+            }
+        """)
+
+        
+
+        #LAYOUTS---------------------------------------------
+
+        # ------------ LAYOUT IMPORT
+        import_layout = QHBoxLayout()
+        import_layout.addWidget(self.import_button)
+        import_layout.addWidget(self.fichier_selec)
+        import_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
+        
+
+        img_layout = QVBoxLayout()
+        img_layout.addLayout(import_layout)
+        img_layout.addWidget(toolbar)
+        img_layout.addWidget(self.canvas)
+        img_layout.addWidget(self.slider_widget)
+        
+        img_layout.addWidget(self.label)
+
+         # SPECTRE ---------------------------------------------
+        self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
+        self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
+        self.spectrum_ax.set_ylabel("Intensité", color='black')
+        self.spectrum_ax.set_xlim(402, 998)
+        self.spectrum_ax.tick_params(axis='x', colors='black')
+        self.spectrum_ax.tick_params(axis='y', colors='black')
+
+        # Génération de données fictives pour le spectre
+        self.spectrum_x = np.linspace(402, 998, 100)  # Longueur d'onde fictive de 402 à 998 nm
+        self.spectrum_y = np.zeros_like(self.spectrum_x)  # Spectre vide initial
+
+        # Plot vide pour initialisation
+        self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
+
+        # #SPECTRE---------------------------------------------
+        # self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
+        # self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
+        # self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
+        # self.spectrum_ax.set_ylabel("Intensité", color='black')
+        # self.spectrum_ax.set_xlim(402, 998)
+        # self.spectrum_ax.tick_params(axis='x', colors='black')
+        # self.spectrum_ax.tick_params(axis='y', colors='black')
+
+        # # Calcul initial du spectre global
+        # self.spectrum_x = self.metadata['wavelength']
+        # self.spectrum_x = np.array(self.spectrum_x)
+        # self.spectrum_x = self.spectrum_x.astype(float)
+
+        # self.img_s = np.array(self.img.load())  # ✅ Convertit en numpy.ndarray
+
+        # print(f"Type après .load(): {type(self.img_s)}")
+        # print(f"Shape après .load(): {self.img_s.shape}")  # Doit être (608, 968, 299)
+        # self.spectrum_y = np.mean(self.img_s, axis=(0,1))  # Moyenne des pixels par bande
+        # self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
+
+
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(img_layout, 1)
+        main_layout.addWidget(self.spectrum_canvas, 1)
+
+        self.setLayout(main_layout)
+        self.Img_ax.imshow(RGB_img)
+        self.Img_ax.axis('off')
+        self.canvas.draw()
+
+
+    def update_image(self):
+        idx_min, idx_max = self.slider_widget.range_slider.value()
+        img_data = m.calcule_rgb_plage(self.file_data, self.metadata, idx_min, idx_max)
+        img_array = np.array(img_data, dtype=np.uint8)
+        self.Img_ax.clear()
+        self.Img_ax.imshow(img_array)
+        self.Img_ax.axis('off')
+        self.canvas.draw()
+    
+    def update_spectre(self):
+        wl_min, wl_max = self.slider_widget.range_slider.value()
+        #mask = (self.spectrum_x >= wl_min) & (self.spectrum_x <= wl_max)
+        #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
+        self.spectrum_ax.plot(self.spectrum_x[wl_min:wl_max], self.spectrum_y[wl_min:wl_max], color='cyan')
+                
+
+        #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
+        self.spectrum_ax.set_ylabel("Intensité", color='black')
+        self.spectrum_ax.set_xlim(self.metadata["wavelength"][wl_min], self.metadata["wavelength"][wl_max])
+        self.spectrum_ax.tick_params(axis='x', colors='black')
+        self.spectrum_ax.tick_params(axis='y', colors='black')
+        self.spectrum_figure.tight_layout()
+        self.spectrum_canvas.draw()
+
+    def import_file(self):
+        options = QFileDialog.Options()
+        self.file_path_noload, _ = QFileDialog.getOpenFileName(
+            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
+
+        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
+            print("Aucun fichier sélectionné.")
+            return
+        self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
+        # Afficher l'animation de chargement
+        QApplication.processEvents() 
+
+        
+        # Stopper l'animation après le chargement
+        
+        self.file_data = sp.open_image(self.file_path_noload)
+        self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
+        self.metadata = self.file_data.metadata  # Récupérer les métadonnées
+        self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
+        self.Img_ax.axis('off')
+
+        img_data = m.calcule_rgb_plage(self.file_data, self.metadata,0, int(self.metadata["bands"])-1)
+        if img_data is None:
+            print("Erreur : impossible de calculer l'image RGB.")
+            self.fichier_selec.setText("Erreur lors du traitement de l'image")
+            return
+        img_array = np.array(img_data, dtype=np.uint8)
+        self.Img_ax.clear()
+        self.Img_ax.imshow(img_array)
+        self.Img_ax.axis('off')
+        self.canvas.draw()
+
+        self.slider_widget.range_slider.setRange(0, int(self.metadata["bands"])-1)
+        self.slider_widget.setWavelenghts(self.metadata["wavelength"])
+        
+
+        self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+
+        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
+
 class MatplotlibImage_3slid(QWidget):
     def __init__(self, RGB_img):
         super().__init__()
@@ -514,7 +738,7 @@ class MatplotlibImage_3slid(QWidget):
         self.import_button = QPushButton("Importer fichier")
         self.import_button.clicked.connect(self.import_file)
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
-        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 20px; font-style: italic;")
+        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
         self.import_button.setStyleSheet("""
             QPushButton {
                 background-color: #3A3A3A;
@@ -588,23 +812,17 @@ class MatplotlibImage_3slid(QWidget):
 
         #LABELS---------------------------------------------
         font = QFont("Verdana", 20, QFont.Bold)
-        self.label = QLabel("Saisir des longeurs d'onde pour les canaux R, G, B")
+        self.label = QLabel("Choisir des longueurs d'onde pour les canaux R, G, B")
         self.label.setAlignment(Qt.AlignCenter)
         self.label.setStyleSheet("color: white; font-size: 30px;")
         self.label.setFont(font)
 
-        # Créer une animation pour le chargement (exemple avec un gif)
-        self.loading_gif = QLabel(self)
-        self.loading_gif.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.movie = QMovie("amalie-steiness.gif")
-        self.loading_gif.setMovie(self.movie)
+       
         #LAYOUTS---------------------------------
         # ------------
         import_layout = QHBoxLayout()
         import_layout.addWidget(self.import_button)
         import_layout.addWidget(self.fichier_selec)
-        import_layout.addWidget(self.loading_gif)
-
         import_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
 
 
@@ -619,11 +837,11 @@ class MatplotlibImage_3slid(QWidget):
         #Création de l'affichage du spectre
         # self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
         # self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
-        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
-        self.spectrum_ax.set_ylabel("Intensité", color='black')
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='white')
+        self.spectrum_ax.set_ylabel("Intensité", color='white')
         self.spectrum_ax.set_xlim(0, 0)
-        self.spectrum_ax.tick_params(axis='x', colors='black')
-        self.spectrum_ax.tick_params(axis='y', colors='black')
+        self.spectrum_ax.tick_params(axis='x', colors='white')
+        self.spectrum_ax.tick_params(axis='y', colors='white')
         # Graphique vide au départ (sans données)
         self.spectrum_ax.bar([], [], color=['red', 'green', 'blue'])  # Barres vides
         self.spectrum_ax.set_title("Réflectance en fonction de la longueur d'onde")
@@ -680,31 +898,29 @@ class MatplotlibImage_3slid(QWidget):
         if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
             print("Aucun fichier sélectionné.")
             return
-        self.fichier_selec.setText("Chargement en cours...")  # Afficher le chemin dans l'UI
+        self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
         # Afficher l'animation de chargement
-        self.loading_gif.show()
-        self.movie.start()
+        QApplication.processEvents() 
 
-        # Simuler le temps de chargement (remplacer par votre processus réel de chargement)
-        time.sleep(2)#     
-
-        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
         
         # Stopper l'animation après le chargement
-        self.movie.stop()
-        self.loading_gif.hide()
-        # Charger le fichier HDR
+        
         self.file_data = sp.open_image(self.file_path_noload)
         self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_data.metadata  # Récupérer les métadonnées
         self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
         self.Img_ax.axis('off')
 
+        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
+        # Charger le fichier HDR
+
         self.slid_r.setRange(0, int(self.metadata["bands"])-1)
         self.slid_g.setRange(0, int(self.metadata["bands"])-1)
         self.slid_b.setRange(0, int(self.metadata["bands"])-1)
 
         self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+
+        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
 
     
     def update_spectrum(self,  wavelengths, reflectance_values):
