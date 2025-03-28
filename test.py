@@ -1,48 +1,23 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel
-from PySide6.QtCore import Signal
-from superqt import QRangeSlider
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
 
-class CustomQRangeSlider(QRangeSlider):
-    """Custom QRangeSlider that emits a signal when the slider is released."""
-    
-    sliderReleased = Signal(tuple)  # Define a custom signal that sends the slider values
+# create some data
+data = np.random.randint(0, 8, (5,5))
+# get the unique values from data
+# i.e. a sorted list of all values in data
+values = np.unique(data.ravel())
 
-    def mouseReleaseEvent(self, event):
-        """Detects when the user releases the slider and emits the custom signal."""
-        super().mouseReleaseEvent(event)  # Call the default behavior
-        self.sliderReleased.emit(self.value())  # Emit signal with the current values
+plt.figure(figsize=(8,4))
+im = plt.imshow(data, interpolation='none')
 
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Custom QRangeSlider with sliderReleased Signal")
+# get the colors of the values, according to the 
+# colormap used by imshow
+colors = [ im.cmap(im.norm(value)) for value in values]
+# create a patch (proxy artist) for every color 
+patches = [ mpatches.Patch(color=colors[i], label="Level {l}".format(l=values[i]) ) for i in range(len(values)) ]
+# put those patched as legend-handles into the legend
+plt.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
 
-        # Create central widget and layout
-        central_widget = QWidget()
-        layout = QVBoxLayout(central_widget)
-
-        # Create a Custom QRangeSlider
-        self.slider = CustomQRangeSlider()
-        self.slider.setRange(0, 100)  # Set min & max values
-        self.slider.setValue((20, 80))  # Set initial range
-
-        # Label to show the released range
-        self.label = QLabel(f"Released Range: {self.slider.value()}")
-
-        # Connect the custom signal to update the label
-        self.slider.sliderReleased.connect(self.on_slider_released)
-
-        layout.addWidget(self.slider)
-        layout.addWidget(self.label)
-        self.setCentralWidget(central_widget)
-
-    def on_slider_released(self, value):
-        """Update the label when the slider is released."""
-        self.label.setText(f"Released Range: {value}")
-        print(f"Slider released at: {value}")  # Debugging output
-
-if __name__ == "__main__":
-    app = QApplication([])
-    window = MainWindow()
-    window.show()
-    app.exec()
+plt.grid(True)
+plt.show()

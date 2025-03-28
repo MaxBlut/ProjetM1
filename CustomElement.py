@@ -1,15 +1,17 @@
 import sys
-from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QFrame,QHBoxLayout,QWidget
+from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QHBoxLayout,QWidget
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Signal
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 from tkinter import messagebox
 from qtpy.QtCore import Qt
 
 from matplotlib.legend import Legend
+from matplotlib.patches import Patch
 
 from utiles import mean_spectre_of_cluster, set_legend, get_legend
 
@@ -113,6 +115,7 @@ class CustomToolbar(NavigationToolbar):
         self.left_mouse_pressed = False
         self.right_mouse_pressed = False
         self.selected_pixels_map = None
+        self.number_of_overlay_ploted = 0
         self.overlay = None
 
         # Create mean_spctr_point_button Buttons
@@ -259,6 +262,9 @@ class CustomToolbar(NavigationToolbar):
                     self.selected_pixels_map = np.full((self.parent.data_img.shape[0], self.parent.data_img.shape[1]), False, dtype=bool)
             else:
                 self.pen_button.setChecked(False)
+        if self.overlay is not None:
+                    self.overlay.remove()
+                    self.overlay = None
 
 
     def on_click(self, event):
@@ -284,9 +290,13 @@ class CustomToolbar(NavigationToolbar):
                         # compute and plot the mean spetra of the drawn pixels
                         avg_spectrum = mean_spectre_of_cluster(self.selected_pixels_map, self.parent.data_img, selected_cluster_value=True)
                         if avg_spectrum[0] >= 0: # on fait ce if pour qu'il ne ce passe rien dans le cas ou l'utilisateur valide le plot sans avoir selectionné de pixels
-                            self.parent.axs[1].plot(self.parent.wavelengths, avg_spectrum, label="groupe de  pixels")                           
+                            cmap = plt.get_cmap("nipy_spectral")
+                            norm = plt.Normalize(0, 2*self.number_of_overlay_ploted+1)
+                            color = cmap(norm(self.number_of_overlay_ploted+1))
+                            self.number_of_overlay_ploted +=1
+                            self.parent.axs[1].plot(self.parent.wavelengths, avg_spectrum,color=color, label=f"groupe n°{self.number_of_overlay_ploted}")                           
                             # remove overlay and empty the selected pixels map
-                            self.overlay.remove()
+                            # self.overlay.remove()
                             self.overlay = None
                             self.selected_pixels_map[:,:] = False
                             self.parent.canvas.draw("legend")
@@ -316,8 +326,12 @@ class CustomToolbar(NavigationToolbar):
                 if self.overlay is not None:
                     self.overlay.remove()
                     self.overlay = None
+                cmap = plt.get_cmap("nipy_spectral")
+                norm = plt.Normalize(0, 2*self.number_of_overlay_ploted+1)
+                color = cmap(norm(self.number_of_overlay_ploted+1))
                 masked_overlay = np.ma.masked_where(~self.selected_pixels_map, self.selected_pixels_map)
-                self.overlay = self.parent.axs[0].imshow(masked_overlay, cmap = "Reds_r", alpha = 1)
+                self.overlay = self.parent.axs[0].imshow(masked_overlay, colorizer=color, alpha = 0.9,label=f"groupe n°{self.number_of_overlay_ploted+1}")
+                self.overlay.set_cmap(plt.cm.colors.ListedColormap([color]))
                 self.parent.canvas.draw()
         if self.left_mouse_pressed and event.button == 1:
             self.left_mouse_pressed = False  # Stop recording           
@@ -344,45 +358,70 @@ class CustomToolbar(NavigationToolbar):
 
 
 
-
-
 class PickableLegend(Legend):
-    """Custom Legend that enables picking on legend items by default."""
-    # Store the original legend lines and their corresponding plot lines
-    def __init__(self, parent_ax, canvas, *args, **kwargs):
-        super().__init__(parent_ax, *args, **kwargs)
-        self.parent_canvas = canvas  # Store reference to the parent canvas
-        self.parent_ax = parent_ax  # Store reference to the parent axes
+    """Custom Legend that enables picking on legend items, including both lines and images."""
+    
+    def __init__(self, parent_ax, canvas, plot_objects, labels, *args, **kwargs):
+        """
+        plot_objects: List of either Line2D or AxesImage objects to be controlled by the legend.
+        labels: Corresponding labels for each plot object.
+        """
+        self.parent_canvas = canvas
+        self.parent_ax = parent_ax
+        self.plot_objects = plot_objects  # Store reference to lines & images
+        
+        # Convert AxesImage objects into proxy patches
+        self.proxies = [self.create_proxy(obj, lbl) if isinstance(obj, matplotlib.image.AxesImage) else obj
+                        for obj, lbl in zip(plot_objects, labels)]
+
+        # Call Legend constructor with the new proxy list
+        super().__init__(parent_ax, handles=self.proxies, labels=labels, *args, **kwargs)
+        
         self._enable_picking()
         self._pick_event_id = self.parent_canvas.mpl_connect("pick_event", self.on_pick)
         set_legend(self.parent_ax, self)
 
+
+    def create_proxy(self, image, label):
+        """Creates a colored box proxy for an image to use in the legend."""
+        color = image.cmap(image.norm(image.get_array().mean()))  # Estimate color from image
+        return Patch(color=color, label=label)
+
+
     def _enable_picking(self):
-        """Enable picking for all legend lines."""
-        for leg_line in self.get_lines():
-            leg_line.set_picker(True)  # Enable clicking on legend items
-            leg_line.set_pickradius(8)  # Make it easier to click
+        """Enable picking for legend items."""
+        for leg_item in self.legend_handles:  # legend_handles contains both lines & image proxies
+            leg_item.set_picker(True)
+            try:
+                leg_item.set_pickradius(8)  # Increase click tolerance
+            except AttributeError:
+                pass
 
 
     def on_pick(self, event):
-        #Handles pick events to toggle visibility of spectra.
-        if not isinstance(event.artist, plt.Line2D):  # Ignore text & non-line elements
-            return
-        legend = event.artist
-        isVisible = legend.get_visible()
-        if event.mouseevent.button == 1:    # Left-click toggles visibility
-            # Toggle visibility of the corresponding plot
-            for legend_obj, line_obj in zip(self.get_lines(),self.parent_ax.get_lines()):
-                if legend_obj == legend:
-                    legend.set_visible(not isVisible)
-                    line_obj.set_visible(not isVisible)
+        """Handles pick events to toggle visibility for both 2D lines and images."""
+        legend_item = event.artist  # Clicked legend item
+        
+        if event.mouseevent.button == 1:  # Left-click toggles visibility
+            for legend_obj, plot_obj in zip(self.legend_handles, self.plot_objects):
+                if legend_obj == legend_item:
+                    is_visible = plot_obj.get_visible()
+                    legend_obj.set_visible(not is_visible)
+                    plot_obj.set_visible(not is_visible)
+                    print(f"Toggled visibility for: {plot_obj.get_label()}")
             self.parent_canvas.draw()
+        
         elif event.mouseevent.button == 3:  # Right-click opens deletion prompt
-            for legend_obj, line_obj in zip(self.get_lines(),self.parent_ax.get_lines()):
-                if legend_obj == legend:
-                    if messagebox.askyesno("Delete Line", f"Do you want to delete {legend.get_label()}?"):
-                        line_obj.remove()
-            self.parent_canvas.draw("legend")
+            for legend_obj, plot_obj in zip(self.legend_handles, self.plot_objects):
+                if legend_obj == legend_item:
+                    obj_label = plot_obj.get_label()  # Get label directly
+                    if messagebox.askyesno("Delete Item", f"Do you want to delete {obj_label}?"):
+                        plot_obj.remove()
+                        print(f"Deleted: {obj_label}")
+            self.parent_canvas.draw()
+
+
+
     
 
     
@@ -429,19 +468,33 @@ class CustomCanvas(FigureCanvas):
         """Updates the legend be removing and reploting it."""
         
         for i in range(len(self.parent_axs)):
-            _, labels = self.parent_axs[i].get_legend_handles_labels()
-            # Check if legend already exists
+            plot_list = []
+            label_list = []
+            number_img = 0
+            for children in self.parent_axs[i].get_children():
+                if type(children) is matplotlib.lines.Line2D:
+                    plot_list.append(children)
+                    label_list.append(children.get_label())
+                elif  type(children) is matplotlib.image.AxesImage :
+                    number_img+=1
+                    if number_img > 1:
+
+                        plot_list.append(children)
+                        label_list.append(children.get_label())
+        
+
             legend_obj = get_legend(self.parent_axs[i])
             if legend_obj:
                 self.mpl_disconnect(legend_obj._pick_event_id)
                 legend_obj.remove()
                 set_legend(self.parent_axs[i], None)
 
-            # Create and add the new legend
-            if len(labels)>0:
-                legend_obj = PickableLegend(self.parent_axs[i], self, self.parent_axs[i].get_lines(), labels)
+
+            if len(label_list)>0:
+                legend_obj = PickableLegend(self.parent_axs[i], self, plot_list, label_list)
                 set_legend(self.parent_axs[i], legend_obj)
                 self.parent_axs[i].add_artist(legend_obj)
+        
         
 
 

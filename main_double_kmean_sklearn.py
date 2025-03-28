@@ -7,11 +7,8 @@ from time import time
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel,
-    QFileDialog, QHBoxLayout, QLineEdit, QSlider
+    QFileDialog, QHBoxLayout, QLineEdit
 )
-
-from superqt import QRangeSlider, QLabeledRangeSlider
-from qtpy.QtCore import Qt
 
 from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider
 from utiles import mean_spectre_of_cluster, custom_clear
@@ -86,7 +83,7 @@ class KMeansApp(QMainWindow):
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
         self.axs[0].set_title("hyperspectral image")
         self.axs[1].set_title("spectrum")
-        self.canvas = CustomCanvas(self.figure, [self.axs[1]])
+        self.canvas = CustomCanvas(self.figure, self.axs)
         layout.addWidget(CustomToolbar(self.canvas, self))
         layout.addWidget(self.canvas)
         
@@ -240,7 +237,7 @@ class KMeansApp(QMainWindow):
                 self.param_has_changed_skm = False
                 self.param_has_changed_spectra = True       # met la variable a True pour recharger le display spectra
             
-            custom_clear(self.axs[0])
+            custom_clear(self.axs[0])   
             self.axs[0].set_title("hyperspectral image")
             self.axs[0].imshow(self.second_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
@@ -254,9 +251,7 @@ class KMeansApp(QMainWindow):
             self.axs[1].set_title("spectrum")
             cmap = plt.get_cmap("nipy_spectral")
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
-            # Store plotted lines
-            
-            
+            print("norm", norm)
             for i in np.unique(self.second_cluster_map):
                 avg_spectrum = mean_spectre_of_cluster(self.second_cluster_map, self.data_img, selected_cluster_value=i)
                 self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
