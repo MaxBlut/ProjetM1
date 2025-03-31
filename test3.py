@@ -69,7 +69,7 @@ class CustomWidgetRangeSlider(QWidget):
         """Update labels and restrict slider movement to allowed values."""
         
         min_index, max_index = value  # Get slider positions
-        min_value, max_value = int(self.wavelenghts[min_index]), int(self.wavelenghts[max_index])  # Map indices to values
+        min_value, max_value = float(self.wavelenghts[min_index]), float(self.wavelenghts[max_index])  # Map indices to values
         self.wl_min_label.setText("{}".format(min_value))
         self.wl_max_label.setText("{}".format(max_value))
         """Reduit l'étude des clustering aux valeurs indiqués"""

@@ -1,38 +1,34 @@
 import sys
-import spectral as sp
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans, MiniBatchKMeans
-from time import time
-
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel,
-    QFileDialog, QHBoxLayout, QLineEdit
+    QApplication, QWidget, QVBoxLayout
 )
-
+from superqt import QRangeSlider
 from test3 import CustomWidgetRangeSlider
 
-import re
 
-import os      
-
-class KMeansApp(QMainWindow):
+class KMeansApp(QWidget):  # Hérite maintenant de QWidget
     def __init__(self):
         super().__init__()
         self.setWindowTitle("K-Means Clustering on HDR Images")
-    
+        self.init_ui()
+
     def init_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)  # Définir le widget central de la fenêtre
+        layout = QVBoxLayout(self)
 
         # Double slider
         self.slider_widget = CustomWidgetRangeSlider()
-        layout = QVBoxLayout(central_widget)
+        layout.addWidget(self.slider_widget)
 
-        layout.addWidget(self.slider_widget)  #  Fix: Removed `layout.layout()`
-        
+        self.setLayout(layout)  # Ajout explicite du layout
+        self.setGeometry(100, 100, 800, 600)
+
+
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    app = QApplication.instance()
+    if not app:
+        app = QApplication(sys.argv)
     window = KMeansApp()
     window.show()
     sys.exit(app.exec())
