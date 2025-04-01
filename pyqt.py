@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit, QSplitter, QProgressBar, QCheckBox, QRadioButton, QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QFileDialog
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
 import main as m
@@ -25,9 +25,8 @@ plt.ioff()
 
 
 class MatplotlibImage(QWidget):
-    def __init__(self, RGB_img):
+    def __init__(self, RGB_img, save_import):
         super().__init__()
-        self.save_import = Save_import()
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText("Écrivez ici une description ou un commentaire...")
         self.text_edit.setStyleSheet("background-color: #3A3A3A; color: white; font-size: 14px; padding: 5px; border-radius : 5px")
@@ -103,9 +102,7 @@ class MatplotlibImage(QWidget):
         
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
         self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
-        self.save_import.fichier_importe.connect(self.fichier_selec.setText(self.save_import.get_fichier()))
-        self.fichier_selec.setText(self.save_import.get_fichier())
-
+        save_import.signals.fichier_importe.connect(self.update_file)
         self.import_button.setStyleSheet("""
             QPushButton {
                 background-color: #3A3A3A;
@@ -212,6 +209,12 @@ class MatplotlibImage(QWidget):
         self.Img_ax.axis('off')
         self.canvas.draw()
 
+    def update_file(self, path):
+        self.file_path = path
+        print("je suis la")
+        self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
+
+
     def update_slider_text(self):
         wavelenght = self.slider.value()
         self.label.setText(f"Longueur d'onde : {wavelenght} nm")
@@ -246,23 +249,13 @@ class MatplotlibImage(QWidget):
             self.canvas.draw()
 
     def import_file(self):
-        options = QFileDialog.Options()
-        self.file_path_noload, _ = QFileDialog.getOpenFileName(
-            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
 
-        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
-            print("Aucun fichier sélectionné.")
-            return
-
-        self.fichier_selec.setText(self.file_path_noload)  # Afficher le chemin dans l'UI
-        
-        # Charger le fichier HDR
-        self.file_path = sp.open_image(os.path.basename(self.file_path_noload))
+        self.file_path = sp.open_image(os.path.basename(self.file_path))
         self.img_data = self.file_path.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_path.metadata  # Récupérer les métadonnées
-        self.left_label = QLabel(f"{self.metadata['wavelenght'][0]} nm")
-        self.right_label = QLabel(f"{self.metadata['wavelenght'][-1]} nm")
-        self.slider.setRange(float(self.metadata["wavelenght"][0]), float(self.metadata["wavelenght"][-1]))
+        self.left_label = QLabel(f"{self.metadata['wavelength'][0]} nm")
+        self.right_label = QLabel(f"{self.metadata['wavelength'][-1]} nm")
+        self.slider.setRange(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
 
 
 
@@ -473,7 +466,7 @@ class MatplotlibImage_DoubleCurseur2(QWidget):
 
 
 class MatplotlibImage_DoubleCurseur(QWidget):
-    def __init__(self, RGB_img):
+    def __init__(self, RGB_img, save_import):
         super().__init__()
         self.file_data = None
         # self.setStyleSheet("background-color: #2E2E2E;")
@@ -510,9 +503,11 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         self.right_label.setStyleSheet("color: white; font-size: 20px;")
 
         #---------------- Bouton "Importer fichier" 
-        self.import_button = QPushButton("Importer fichier")
+        self.import_button = QPushButton("Analyser")
         self.import_button.clicked.connect(self.import_file)
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        save_import.signals.fichier_importe.connect(self.update_file)
+
         self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
         self.import_button.setStyleSheet("""
             QPushButton {
@@ -570,7 +565,11 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         self.Img_ax.imshow(RGB_img)
         self.Img_ax.axis('off')
         self.canvas.draw()
-
+        
+    def update_file(self, path):
+        self.file_path = path
+        print("je suis la")
+        self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
 
     def update_image(self):
         idx_min, idx_max = self.slider_widget.range_slider.value()
@@ -603,21 +602,15 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         self.spectrum_canvas.draw()
 
     def import_file(self):
-        options = QFileDialog.Options()
-        self.file_path_noload, _ = QFileDialog.getOpenFileName(
-            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
 
-        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
-            print("Aucun fichier sélectionné.")
-            return
         self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
         # Afficher l'animation de chargement
         QApplication.processEvents() 
-
+        
         
         # Stopper l'animation après le chargement
         
-        self.file_data = sp.open_image(self.file_path_noload)
+        self.file_data = sp.open_image(self.file_path)
         self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_data.metadata  # Récupérer les métadonnées
         self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
@@ -640,10 +633,10 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         self.spectrum_y = np.mean(self.img_data, axis=(0,1))  # Moyenne des pixels par bande
         self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
 
-        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
+        self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
 
 class MatplotlibImage_3slid(QWidget):
-    def __init__(self, RGB_img):
+    def __init__(self, RGB_img, save_import):
         super().__init__()
         self.file_path = None
 
@@ -721,10 +714,11 @@ class MatplotlibImage_3slid(QWidget):
         self.slid_b.setStyleSheet(StyleSheet)
 
         #---------------- Bouton "Importer fichier" 
-        self.import_button = QPushButton("Importer fichier")
+        self.import_button = QPushButton("Analyser")
         self.import_button.clicked.connect(self.import_file)
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
         self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
+        save_import.signals.fichier_importe.connect(self.update_file)
         self.import_button.setStyleSheet("""
             QPushButton {
                 background-color: #3A3A3A;
@@ -752,15 +746,15 @@ class MatplotlibImage_3slid(QWidget):
         self.b_label.setStyleSheet("color: blue; font-size: 20px; font-weight: bold;")
 
         # LABELS AU DSSUS --------------------------------
-        self.value_r = QLabel(" veuillez importer un fichier")
+        self.value_r = QLabel(" veuillez analyser le fichier")
         self.value_r.setAlignment(Qt.AlignCenter)
         self.value_r.setStyleSheet("color: white; font-size: 16px;")
 
-        self.value_g = QLabel("veuillez importer un fichier")
+        self.value_g = QLabel("")
         self.value_g.setAlignment(Qt.AlignCenter)
         self.value_g.setStyleSheet("color: white; font-size: 16px;")
 
-        self.value_b = QLabel("veuillez importer un fichier")
+        self.value_b = QLabel("")
         self.value_b.setAlignment(Qt.AlignCenter)
         self.value_b.setStyleSheet("color: white; font-size: 16px;")
 
@@ -841,6 +835,11 @@ class MatplotlibImage_3slid(QWidget):
         self.Img_ax.axis('off')
         self.canvas.draw()
 
+    def update_file(self, path):
+        self.file_path = path
+        print("je suis la")
+        self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
+
     def update_slid_text(self):
         # Récupérer les valeurs des sliders
         wl_r = self.slid_r.value()
@@ -877,13 +876,6 @@ class MatplotlibImage_3slid(QWidget):
 
 
     def import_file(self):
-        options = QFileDialog.Options()
-        self.file_path_noload, _ = QFileDialog.getOpenFileName(
-            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
-
-        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
-            print("Aucun fichier sélectionné.")
-            return
         self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
         # Afficher l'animation de chargement
         QApplication.processEvents() 
@@ -891,13 +883,12 @@ class MatplotlibImage_3slid(QWidget):
         
         # Stopper l'animation après le chargement
         
-        self.file_data = sp.open_image(self.file_path_noload)
+        self.file_data = sp.open_image(self.file_path)
         self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_data.metadata  # Récupérer les métadonnées
         self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
         self.Img_ax.axis('off')
 
-        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
         # Charger le fichier HDR
 
         self.slid_r.setRange(0, int(self.metadata["bands"])-1)
@@ -905,8 +896,14 @@ class MatplotlibImage_3slid(QWidget):
         self.slid_b.setRange(0, int(self.metadata["bands"])-1)
 
         self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+        
+        self.value_r.setText(" Choisissez une longueur d'onde")
+        self.value_g.setText(" ")
+        self.value_b.setText(" ")
 
-        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
+
+
+        self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
 
     
     def update_spectrum(self,  wavelengths, reflectance_values):
@@ -959,11 +956,14 @@ class MatplotlibImage_3slid(QWidget):
 
 
 class Save_import(QWidget):
-    fichier_importe = pyqtSignal(str)  # Signal émis lors de l'importation d'un fichier
 
-    def __init__(self):
+    def __init__(self, matplotlib_widgets=None):
         super().__init__()
+        self.signals = SignalEmitter()  # Signal émis lors de l'importation d'un fichier
+        self.matplotlib_widgets = matplotlib_widgets  # Liste de widgets Matplotlib à enregistrer
+
         self.file_path_noload = None
+        self.matplotlib_widgets = matplotlib_widgets if matplotlib_widgets is not None else []  
 
         #---------------- Bouton "Importer fichier" 
         self.import_button = QPushButton("Importer fichier")
@@ -991,7 +991,7 @@ class Save_import(QWidget):
         self.setStyleSheet("background-color: #2E2E2E;")
 
         self.save_button = QPushButton("Sauvegarde")
-        # self.save_button.clicked.connect(self.save_as_pdf)
+        self.save_button.clicked.connect(self.save_all_as_pdf)
 
         self.save_button.setMinimumWidth(200)
         self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -1008,6 +1008,9 @@ class Save_import(QWidget):
                 background-color: #4A4A4A;
             }
         """)
+
+
+
 
 
 
@@ -1029,6 +1032,24 @@ class Save_import(QWidget):
         self.setLayout(main_layout)
 
 
+    def save_all_as_pdf(self):
+        file_path, _ = QFileDialog.getSaveFileName(self, "Enregistrer sous", "", "Fichier PDF (*.pdf)")
+        if not file_path:
+            return
+
+        # Création d'un nouveau PDF
+        pdf_canvas = canvas.Canvas(file_path, pagesize=A4)
+        page_width, page_height = A4
+
+        # Sauvegarder chaque figure
+        for widget in self.matplotlib_widgets:
+            # Sauvegarde de chaque figure de type MatplotlibImage
+            if hasattr(widget, 'figure'):
+                save_exporter = SaveAsPDF(widget.figure, self.text_edit)
+                save_exporter.save_as_pdf(file_path)
+
+        print(f"PDF enregistré à : {file_path}")
+
     def import_file(self):
         options = QFileDialog.Options()
         self.file_path_noload, _ = QFileDialog.getOpenFileName(
@@ -1041,8 +1062,8 @@ class Save_import(QWidget):
         QApplication.processEvents() 
 
         self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
-        self.fichier_importe.emit(self.file_path_noload)  # Émet le signal avec le chemin du fichier
-
+        self.signals.fichier_importe.emit(self.file_path_noload)  # Émet le signal avec le chemin du fichier
+        print("Signal émis")
     
     def get_fichier(self):
         if self.file_path_noload is None:
@@ -1050,18 +1071,77 @@ class Save_import(QWidget):
         else:
             return self.file_path_noload
 
+class SaveAsPDF:
+    def __init__(self, figure, text_edit):
+        self.figure = figure
+        self.text_edit = text_edit
+
+    def save_as_pdf(self, file_path):
+        if not self.figure:
+            print("Aucune image chargée.")
+            return
+
+        # Sauvegarde temporaire de l'image affichée par Matplotlib
+        temp_img_path = "temp_image.png"
+        self.figure.savefig(temp_img_path, dpi=300, bbox_inches='tight')  # Sauvegarde directe de la figure
+
+        # Création du PDF
+        pdf_canvas = canvas.Canvas(file_path, pagesize=A4)
+
+        # Ajout de l'image au PDF
+        img = Image.open(temp_img_path)
+        img_width, img_height = img.size
+        page_width, page_height = A4
+        scale = min(page_width / img_width, (page_height - 100) / img_height)
+        new_width = img_width * scale
+        new_height = img_height * scale
+
+        x_offset = (page_width - new_width) / 2
+        y_offset = page_height - new_height - 50
+        pdf_canvas.drawImage(temp_img_path, x_offset, y_offset, width=new_width, height=new_height)
+
+        # Sauvegarde du texte sur une autre page
+        pdf_canvas.showPage()
+        text = self.text_edit.toPlainText()
+        pdf_canvas.setFont("Helvetica", 12)
+        pdf_canvas.drawString(50, page_height - 50, "Commentaire de l'utilisateur :")
+
+        y_pos = page_height - 80
+        for line in text.split("\n"):
+            pdf_canvas.drawString(50, y_pos, line)
+            y_pos -= 20
+
+        pdf_canvas.save()
+        print(f"PDF enregistré à : {file_path}")
+        
+class SignalEmitter(QObject):
+    fichier_importe = Signal(str)  # Signal émis lors de l'importation d'un fichier
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Appli curseur")
         self.showMaximized()
+        self.save_import = Save_import()
 
+        
         initial_image = np.zeros((100, 100, 3), dtype=np.uint8)  # Image en couleur par défaut
         # self.matplotlib_widget_gris = MatplotlibImage_Gris(initial_image)
-        self.matplotlib_widget_rgb = MatplotlibImage(initial_image)
-        self.matplotlib_widget_double = MatplotlibImage_DoubleCurseur(initial_image)
-        self.matplotlib_widget_3slid = MatplotlibImage_3slid(initial_image)
-        self.save_import = Save_import()
+        self.matplotlib_widget_rgb = MatplotlibImage(initial_image, self.save_import)
+        self.matplotlib_widget_double = MatplotlibImage_DoubleCurseur(initial_image,self.save_import)
+        self.matplotlib_widget_3slid = MatplotlibImage_3slid(initial_image,self.save_import)
+
+        self.save_import.matplotlib_widgets = [
+            self.matplotlib_widget_rgb, 
+            self.matplotlib_widget_double, 
+            self.matplotlib_widget_3slid
+        ]
+        self.save_import.signals.fichier_importe.connect(self.matplotlib_widget_rgb.update_file)
+        self.save_import.signals.fichier_importe.connect(self.matplotlib_widget_double.update_file)
+        self.save_import.signals.fichier_importe.connect(self.matplotlib_widget_3slid.update_file)
+
+
+
 
         self.tabs = QTabWidget()
         self.tab1 = QWidget()
@@ -1119,6 +1199,8 @@ class MainWindow(QMainWindow):
             background-color: #2E2E2E;  /* Fond gris foncé */
         }
         """)
+
+
 
 
 
