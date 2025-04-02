@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QLineEdit
 )
 
-from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider
+from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider, hyperspectral_appli
 from utiles import mean_spectre_of_cluster, custom_clear
 
 import re
@@ -30,7 +30,7 @@ sp.settings.envi_support_nonlowercase_params = True
 
 
 
-class KMeansApp(QMainWindow):
+class KMeansApp(hyperspectral_appli):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("K-Means Clustering on HDR Images")
@@ -39,17 +39,18 @@ class KMeansApp(QMainWindow):
 
 
     def variable_init(self):
-        self.param_has_changed_fkm = True # variable booleene pour signaler lorsqu'une modification a été faite aux parametre du clustering
-        self.param_has_changed_skm = True
-        self.param_has_changed_spectra = True
-        self.file_path = None
-        self.wavelengths = None
-        self.data_img = None
-        self.first_cluster_map = None
-        self.second_cluster_map = None
-        self.const_wl_min = None
-        self.wl_min_cursor = None
-        self.wl_max_cursor = None
+        self.param_has_changed_fkm = True           # 
+        self.param_has_changed_skm = True           # variables booleene pour signaler lorsqu'une modification a été faite aux parametre du clustering
+        self.param_has_changed_spectra = True       #   
+        self.file_path = None   # chemin d'acces du fichier HDR
+        self.croped_wavelength = None   # liste des longueurs d'ondes comprises entre les valeurs min et max du double slider
+        self.original_wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
+        self.data_img = None        
+        self.first_cluster_map = None       # np.array de nombres entier positifs représentant les indices des clusters pour chaques pixels     
+        self.second_cluster_map = None      # np.array de 0 et 1 représentant les indices de la feuille ou du background 
+        self.WL_MIN = None        # la valeur de la plus petite longueur d'onde enregistré par la caméra (constante)
+        self.wl_min_cursor = None       # l'inice de longueur d'onde min du slider
+        self.wl_max_cursor = None       # l'inice de longueur d'onde max du slider
 
   
 
@@ -108,13 +109,13 @@ class KMeansApp(QMainWindow):
         param_layout.addWidget(self.n_clusters_input)
         param_layout.addWidget(QLabel("Iterations:"))
         param_layout.addWidget(self.n_iterations_input)
-        layout.addLayout(param_layout)  #  Fix: Removed `layout.layout()`
+        layout.addLayout(param_layout) 
 
         # Double slider
         self.slider_widget = CustomWidgetRangeSlider()
         self.slider_widget.range_slider.sliderReleased.connect(self.slider_value_changed) 
         self.slider_widget.range_slider.sliderReleased.connect(self.set_param_has_changed) 
-        layout.addWidget(self.slider_widget)  #  Fix: Removed `layout.layout()`
+        layout.addWidget(self.slider_widget)  
 
         # Connect text box signals
         self.n_clusters_input.textChanged.connect(self.set_param_has_changed)  
@@ -131,23 +132,8 @@ class KMeansApp(QMainWindow):
 
 
     def set_param_has_changed(self):
+        """ Fonction permetant de positionné un flag a true pour forcer le second Kmean à se réexecuter au lieu de seulement s'afficher  """
         self.param_has_changed_skm = True 
-
-
-    def load_file(self):
-        self.param_has_changed_fkm = True 
-        self.variable_init()
-        self.file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
-        if self.file_path:
-            self.file_label.setText(f"Fichier : {self.file_path}")
-            self.data_img = sp.open_image(self.file_path).load()
-            self.extract_hdr_info()
-        custom_clear(self.axs[0])
-        custom_clear(self.axs[1])
-        self.axs[1].set_title("spectrum")
-        self.display_image()
-        self.slider_widget.setWavelenghts(self.wavelengths)
-        self.canvas.draw()
     
 
     def slider_value_changed(self, value):
@@ -156,45 +142,9 @@ class KMeansApp(QMainWindow):
         if self.file_path :
             self.data_img = sp.open_image(self.file_path).load()[:,:,self.wl_min_cursor:self.wl_max_cursor]
             self.set_param_has_changed()
-            self.wavelengths = self.original_wavelengths[self.wl_min_cursor:self.wl_max_cursor]
+            self.croped_wavelength = self.original_wavelengths[self.wl_min_cursor:self.wl_max_cursor]
             # print("image data cropped between ",self.wavelengths[0]," and ", self.wavelengths[-1])
 
-    
-    def extract_hdr_info(self):
-        """Extract wlMin and wlMax from an ENVI header file."""
-        with open(self.file_path, "r") as file:
-            for line in file:
-                if line.startswith("wavelength ="):
-                    match = re.search(r"\{(.*?)\}", line)
-                    if match:
-                        # Convert values to a float list
-                        self.original_wavelengths = [float(w.strip()) for w in match.group(1).split(",")]
-                        self.wavelengths = self.original_wavelengths
-                        self.wl_max_cursor = self.wavelengths[0]
-                        self.wl_min_cursor = self.wavelengths[-1]
-            return 
-
-
-    def display_image(self):
-        if self.data_img is not None:
-            custom_clear(self.axs[0])
-            if self.wl_min_cursor >= 450:
-                R = round((700-self.wl_min_cursor)/2) 
-                G = round((550-self.wl_min_cursor)/2)
-                B = round((450-self.wl_min_cursor)/2)
-                RGB_img = self.data_img[:,:,(R,G,B)]
-
-                if RGB_img.max()*2 < 1:
-                    try:
-                        RGB_img = 2*RGB_img.view(np.ndarray)
-                    except ValueError:
-                        pass
-                self.axs[0].imshow(RGB_img)
-            else:
-                print("RGB values not supported")
-            self.axs[0].axis('off')
-            self.axs[0].set_title("hyperspectral image")
-            self.canvas.draw()
 
 
             
@@ -239,9 +189,18 @@ class KMeansApp(QMainWindow):
             
             custom_clear(self.axs[0])   
             self.axs[0].set_title("hyperspectral image")
-            self.axs[0].imshow(self.second_cluster_map, cmap='nipy_spectral')
+            cmap = plt.get_cmap("nipy_spectral")
+            norm = plt.Normalize(0, len(np.unique(self.second_cluster_map)))
+            
+            for i in range(len(np.unique(self.second_cluster_map))):
+                mask = self.second_cluster_map == i
+                mask = np.ma.masked_where(~mask, mask)
+                color = cmap(norm(i))
+                overlay = self.axs[0].imshow(mask, colorizer=color, alpha = 0.9,label=f"cluster{i}")
+                overlay.set_cmap(plt.cm.colors.ListedColormap([color]))
+            # self.axs[0].imshow(self.second_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
-            self.canvas.draw()
+            self.canvas.draw("legend")
     
 
     def display_spectra(self):
@@ -251,10 +210,9 @@ class KMeansApp(QMainWindow):
             self.axs[1].set_title("spectrum")
             cmap = plt.get_cmap("nipy_spectral")
             norm = plt.Normalize(vmin=self.second_cluster_map.min(), vmax=self.second_cluster_map.max())
-            print("norm", norm)
             for i in np.unique(self.second_cluster_map):
                 avg_spectrum = mean_spectre_of_cluster(self.second_cluster_map, self.data_img, selected_cluster_value=i)
-                self.axs[1].plot(self.wavelengths, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
+                self.axs[1].plot(self.croped_wavelength, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
             # Create the legend **AFTER** plotting all lines
             self.canvas.draw("legend")
             self.param_has_changed_spectra = False
@@ -262,8 +220,11 @@ class KMeansApp(QMainWindow):
 
     def on_click(self, event):
         """Handles mouse clicks on the left graph to get pixel coordinates."""
+        if hasattr(event, "handled") and event.handled:  # If the event was marked as handled, ignore it
+            return
         if event.inaxes == self.axs[0]:  # Check if click is on the left graph
             x, y = int(event.xdata), int(event.ydata)
+            print("click event detected in left axs")
 
             # Identify the cluster under the click
             if self.first_cluster_map is not None:
@@ -279,7 +240,7 @@ class KMeansApp(QMainWindow):
             line_data.append(line.get_ydata())
             line.remove()
         moyenne = np.mean(line_data,axis=0)
-        self.axs[1].plot(self.wavelengths,moyenne, label="merged cluster")
+        self.axs[1].plot(self.croped_wavelength,moyenne, label="merged cluster")
         self.canvas.draw("legend")
 
     

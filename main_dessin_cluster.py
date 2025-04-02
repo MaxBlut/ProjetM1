@@ -4,34 +4,63 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QPushButton,QLabel, QSizePolicy, QHBoxLayout, QFileDialog
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from PySide6.QtWidgets import QApplication,QWidget, QVBoxLayout, QPushButton,QLabel, QSizePolicy, QHBoxLayout, QFileDialog
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 from utiles import mean_spectre_of_cluster, are_intersecting
 
+from CustomElement import CustomCanvas,hyperspectral_appli
 
 sp.settings.envi_support_nonlowercase_params = True
 
 
 
 
-class MainWindow_draw_cluster(QWidget):
+class MainWindow_draw_cluster(hyperspectral_appli):
     def __init__(self):
         super().__init__()
-        
-        self.data = None
+        self.setWindowTitle("Matplotlib in PyQt - Click Detection")
+        self.variable_init()
+        self.init_ui()
+
+
+    def variable_init(self):
+        self.file_path = None   # chemin d'acces du fichier HDR
+        self.overlay_number = 0
+        self.data_img = None
         self.map = []           # Variable to store the map
         self.overlay = None     # Variable to store the overlay object for easy removal
         self.points = []        # List to store clicked points
         self.point_plots = []   # Store plotted points Object for easy removal
-        self.line_polts = []    # Store plotted lines Object for easy removal
+        self.line_plots = []    # Store plotted lines Object for easy removal
+        self.croped_wavelength = None   # liste des longueurs d'ondes comprises entre les valeurs min et max du double slider
+        self.original_wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
+        self.WL_MIN = None        # la valeur de la plus petite longueur d'onde enregistré par la caméra (constante)
+        self.wl_min_cursor = None       # l'inice de longueur d'onde min du slider
+        self.wl_max_cursor = None       # l'inice de longueur d'onde max du slider
 
-        self.setWindowTitle("Matplotlib in PyQt - Click Detection")
-        self.figure, (self.Img_ax, self.second_ax) = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
+
+    def init_ui(self):
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        #  Remove existing layout if there is one
+        if central_widget.layout() is not None:
+            old_layout = central_widget.layout()
+            while old_layout.count():
+                item = old_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            old_layout.deleteLater()
+
+        
+        self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
-        self.canvas = FigureCanvas(self.figure)
-        self.second_ax.plot([])  # Initialize the second plot
+
+        self.canvas = CustomCanvas(self.figure, self.axs)
+
+
+        self.axs[1].plot([])  # Initialize the second plot
         self.button_confirm = QPushButton('Confirm')
         self.button_confirm.clicked.connect(self.confirm_to_connect)
         self.button_delete = QPushButton('delete')
@@ -50,19 +79,23 @@ class MainWindow_draw_cluster(QWidget):
         file_layout.addWidget(file_button)
         file_layout.addWidget(self.file_label)
         
+        # toolbar
+        self.toolbar = NavigationToolbar(self.canvas, self)
 
-        toolbar = NavigationToolbar(self.canvas, self)
+     
         
-        layout = QVBoxLayout()
+        
+        layout = QVBoxLayout(central_widget)
         layout.addLayout(file_layout)
         layout.addWidget(self.label)
-        layout.addWidget(toolbar)
+        layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
         layout.addWidget(self.button_confirm)
         layout.addWidget(self.button_delete)
+
         self.setLayout(layout)
         
-
+        
         
         # Connect mouse click event
         self.canvas.mpl_connect("button_press_event", self.on_click)
@@ -74,49 +107,21 @@ class MainWindow_draw_cluster(QWidget):
         self.canvas.draw()
 
 
-    def load_file(self):
-        self.data = None
-        self.first_cluster_map = None
-        self.second_cluster_map = None
-        file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
-        if file_path:
-            self.file_label.setText(f"Fichier : {file_path}")
-            self.data = sp.open_image(file_path).load()
-            self.wavelengths = [402 + 2 * i for i in range(self.data.shape[2])]
-        self.Img_ax.clear()
-        self.second_ax.clear()
-        self.display_image()
-        self.canvas.draw()
-
-
-    def display_image(self):
-        if self.data is not None:
-            self.Img_ax.clear()
-            wlMin = 402
-            R = round((700-wlMin)/2) 
-            G = round((550-wlMin)/2)
-            B = round((450-wlMin)/2)
-            RGB_img = self.data[:,:,(R,G,B)]
-
-            if RGB_img.max()*2 < 1:
-                try:
-                    RGB_img = 2*RGB_img
-                except ValueError:
-                    pass
-            self.Img_ax.imshow(RGB_img)
-            self.Img_ax.axis('off')
-            self.canvas.draw()
-    
 
     def on_click(self, event):
         # Handle mouse click events.
+        if hasattr(event, "handled") and event.handled:  # If the event was marked as handled, ignore it
+            return
+        
+        if self.toolbar._actions['pan'].isChecked() or self.toolbar._actions['zoom'].isChecked():
+            return
         if event.xdata is not None and event.ydata is not None:
-            if self.line_polts != []:
+            if self.line_plots != []:
                 self.delete("lines")
                 self.button_confirm.clicked.disconnect()
                 self.button_confirm.clicked.connect(self.confirm_to_connect)
             if event.button == 1:  # Left click to add a point
-                point, = self.Img_ax.plot(event.xdata, event.ydata, 'rx')  # Mark click
+                point, = self.axs[0].plot(event.xdata, event.ydata, 'rx')  # Mark click
                 self.points.append((event.xdata, event.ydata))
                 self.point_plots.append(point)
                 # print(f"Added: {self.points[-1]}")
@@ -138,8 +143,8 @@ class MainWindow_draw_cluster(QWidget):
         # Disconnect all previous connections before reconnecting
         n =  len(self.points)
         for i in range(n):
-            line, = self.Img_ax.plot([self.points[i][0],self.points[(i+1)%n][0]], [self.points[i][1],self.points[(i+1)%n][1]], 'r')
-            self.line_polts.append(line)
+            line, = self.axs[0].plot([self.points[i][0],self.points[(i+1)%n][0]], [self.points[i][1],self.points[(i+1)%n][1]], 'r')
+            self.line_plots.append(line)
         self.canvas.draw()
         self.button_confirm.clicked.disconnect()
         self.button_confirm.clicked.connect(self.confirm_to_fill)
@@ -153,7 +158,7 @@ class MainWindow_draw_cluster(QWidget):
         n = len(self.points)
         X = [self.points[i][0] for i in range(n)]
         Y = [self.points[i][1] for i in range(n)]
-        shape = self.data.shape
+        shape = self.data_img.shape
         map = np.full((shape[0], shape[1]), False, dtype=bool)
         for i in range(int(min(X)), int(max(X))):
             for j in range(int(min(Y)), int(max(Y))):
@@ -164,7 +169,7 @@ class MainWindow_draw_cluster(QWidget):
                     map[j,i] = True
         masked_overlay = np.ma.masked_where(~map, map)
         self.delete("all") 
-        self.overlay = self.Img_ax.imshow(masked_overlay, cmap = "Reds_r", alpha = 0.6)
+        self.overlay = self.axs[0].imshow(masked_overlay, cmap = "Reds_r", alpha = 0.6, label = f"poly n°{self.overlay_number}")
         self.map = map 
         self.canvas.draw()
         self.button_confirm.clicked.disconnect()
@@ -175,10 +180,13 @@ class MainWindow_draw_cluster(QWidget):
     def confirm_to_plot(self):
         # Plot the mean spectrum of the selected cluster 
         print("Plotting")
-        self.second_ax.plot(mean_spectre_of_cluster(self.map, self.data,True), label = "spectre moyen")
+        
+        self.axs[1].plot(mean_spectre_of_cluster(self.map, self.data_img,True), label = f"poly n°{self.overlay_number}")
         self.delete("overlay")
-        self.canvas.draw()
+        self.canvas.draw("legend")
+        self.overlay_number+=1
         self.label.setText("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
+
 
     def delete(self, what):
         # Delete the overlay and/or points and/or lines from the image shown
@@ -188,7 +196,7 @@ class MainWindow_draw_cluster(QWidget):
         
         if what == "all" or what == "overlay":
             if self.overlay is not None:
-                self.overlay.remove()
+                # self.overlay.remove()
                 self.overlay = None
                 print("   - overlay deleted")
         
@@ -202,12 +210,12 @@ class MainWindow_draw_cluster(QWidget):
                 self.points = []
 
         if what == "all" or what == "lines":
-            n = len(self.line_polts)
+            n = len(self.line_plots)
             if n != 0:
                 print("   - lines deleted")
                 for i in range(n):
-                    self.line_polts[i].remove()
-                self.line_polts = []
+                    self.line_plots[i].remove()
+                self.line_plots = []
         self.canvas.draw()
 
 

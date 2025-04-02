@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QHBoxLayout,QWidget
+from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QHBoxLayout,QWidget,QFileDialog,QMainWindow
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Signal
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -9,13 +9,17 @@ import matplotlib
 import numpy as np
 from tkinter import messagebox
 from qtpy.QtCore import Qt
+import spectral as sp
+
 
 from matplotlib.legend import Legend
 from matplotlib.patches import Patch
 
-from utiles import mean_spectre_of_cluster, set_legend, get_legend
+from utiles import mean_spectre_of_cluster, set_legend, get_legend, custom_clear
 
 from superqt import QRangeSlider
+
+from time import time
 
 
 
@@ -276,7 +280,7 @@ class CustomToolbar(NavigationToolbar):
                     if event.xdata is not None and event.ydata is not None:
                         x, y = int(event.xdata), int(event.ydata)
                         data = self.parent.data_img[y,x,:].reshape(1,-1)
-                        self.parent.axs[1].plot(self.parent.wavelengths, data[0] , label=f"Point ({x}, {y})")
+                        self.parent.axs[1].plot(self.parent.croped_wavelength, data[0] , label=f"Point ({x}, {y})")
                         self.parent.canvas.draw("legend")  # Update the figure
 
 
@@ -294,7 +298,7 @@ class CustomToolbar(NavigationToolbar):
                             norm = plt.Normalize(0, 2*self.number_of_overlay_ploted+1)
                             color = cmap(norm(self.number_of_overlay_ploted+1))
                             self.number_of_overlay_ploted +=1
-                            self.parent.axs[1].plot(self.parent.wavelengths, avg_spectrum,color=color, label=f"groupe n°{self.number_of_overlay_ploted}")                           
+                            self.parent.axs[1].plot(self.parent.croped_wavelength, avg_spectrum,color=color, label=f"groupe n°{self.number_of_overlay_ploted}")                           
                             # remove overlay and empty the selected pixels map
                             # self.overlay.remove()
                             self.overlay = None
@@ -369,6 +373,7 @@ class PickableLegend(Legend):
         self.parent_canvas = canvas
         self.parent_ax = parent_ax
         self.plot_objects = plot_objects  # Store reference to lines & images
+
         
         # Convert AxesImage objects into proxy patches
         self.proxies = [self.create_proxy(obj, lbl) if isinstance(obj, matplotlib.image.AxesImage) else obj
@@ -392,13 +397,14 @@ class PickableLegend(Legend):
         """Enable picking for legend items."""
         for leg_item in self.legend_handles:  # legend_handles contains both lines & image proxies
             leg_item.set_picker(True)
-            try:
+            if isinstance(leg_item, matplotlib.lines.Line2D):  # Apply pickradius only to lines
                 leg_item.set_pickradius(8)  # Increase click tolerance
-            except AttributeError:
-                pass
 
 
     def on_pick(self, event):
+        if event.mouseevent is not None:
+            event.mouseevent.handled = True  # Mark event as handled to prevent propagation
+
         """Handles pick events to toggle visibility for both 2D lines and images."""
         legend_item = event.artist  # Clicked legend item
         
@@ -408,8 +414,13 @@ class PickableLegend(Legend):
                     is_visible = plot_obj.get_visible()
                     legend_obj.set_visible(not is_visible)
                     plot_obj.set_visible(not is_visible)
-                    print(f"Toggled visibility for: {plot_obj.get_label()}")
-            self.parent_canvas.draw()
+                    # print(f"Toggled visibility for: {plot_obj.get_label()}")
+                    
+                    self.parent_ax.draw_artist(legend_obj)
+                    self.parent_ax.draw_artist(plot_obj)
+
+                    self.parent_canvas.draw_idle()  # Forces refresh 
+                    break
         
         elif event.mouseevent.button == 3:  # Right-click opens deletion prompt
             for legend_obj, plot_obj in zip(self.legend_handles, self.plot_objects):
@@ -418,8 +429,9 @@ class PickableLegend(Legend):
                     if messagebox.askyesno("Delete Item", f"Do you want to delete {obj_label}?"):
                         plot_obj.remove()
                         print(f"Deleted: {obj_label}")
-            self.parent_canvas.draw()
-
+                        self.parent_canvas.draw("legend")
+                    break
+        
 
 
     
@@ -478,7 +490,6 @@ class CustomCanvas(FigureCanvas):
                 elif  type(children) is matplotlib.image.AxesImage :
                     number_img+=1
                     if number_img > 1:
-
                         plot_list.append(children)
                         label_list.append(children.get_label())
         
@@ -498,3 +509,71 @@ class CustomCanvas(FigureCanvas):
         
 
 
+
+
+
+
+
+
+class hyperspectral_appli(QMainWindow):
+
+    def display_image(self):
+        if self.data_img is not None:
+            custom_clear(self.axs[0])
+            if self.WL_MIN <= 450:
+                R = round((700-self.WL_MIN)/2) 
+                G = round((550-self.WL_MIN)/2)        #to do : modifier le calcule d'indice pour ne plus avoir a diviser par deux 
+                B = round((450-self.WL_MIN)/2)
+                RGB_img = self.data_img[:,:,(R,G,B)]
+
+                if RGB_img.max()*2 < 1:
+                    try:
+                        RGB_img = 2*RGB_img.view(np.ndarray)
+                    except ValueError:
+                        pass
+                self.axs[0].imshow(RGB_img)
+            else:
+                print("RGB values not supported")
+            self.axs[0].axis('off')
+            self.axs[0].set_title("hyperspectral image")
+            self.canvas.draw()
+    
+    
+    def load_file(self):
+        """charge le fichié selectionné par l'utilisateur """
+        self.param_has_changed_fkm = True 
+        self.variable_init()
+        self.file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
+        if self.file_path:
+            if hasattr(self, "file_label"):
+                self.file_label.setText(f"Fichier : {self.file_path}")
+            self.extract_hdr_info()
+            print(self.file_path, " selected")
+        custom_clear(self.axs[0])
+        custom_clear(self.axs[1])
+        self.axs[1].set_title("spectrum")
+        self.display_image()
+        if hasattr(self, "slider_widget"):
+            self.slider_widget.setWavelenghts(self.original_wavelengths)
+        self.canvas.draw()
+    
+    
+    def extract_hdr_info(self):
+        """Extract wlMin, wlMax and the wavelength list from an ENVI header file."""
+        img = sp.open_image(self.file_path)
+        self.data_img = img.load()
+
+        if 'wavelength' in img.metadata:
+            self.original_wavelengths = img.metadata['wavelength']
+        elif "Wavelength" in img.metadata:
+            self.original_wavelengths = img.metadata['Wavelength']
+        else:
+            print("wavelength metadata not found")
+            return
+        print("metadata found")
+        self.original_wavelengths = [float(i) for i in self.original_wavelengths]
+            
+        self.croped_wavelength = self.original_wavelengths
+        self.wl_max_cursor = self.croped_wavelength[-1]
+        self.wl_min_cursor = self.croped_wavelength[0]
+        self.WL_MIN = self.wl_min_cursor

@@ -66,3 +66,13 @@ def get_legend(ax):
 def custom_clear(ax):
     ax.clear()
     set_legend(ax, None)
+
+
+def closest_id(wl, wl_list, accuracy=5):
+    id = None
+    diff = accuracy
+    for i in range(len(wl_list)):
+        if abs(wl - wl_list[i]) < diff:
+            id = i
+    return id
+
