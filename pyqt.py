@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit, QSplitter, QProgressBar, QCheckBox, QRadioButton, QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QFileDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit, QSplitter, QProgressBar, QCheckBox, QRadioButton, QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QFileDialog, QInputDialog
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from PySide6.QtCore import QThread, Signal, QObject
@@ -97,7 +97,8 @@ class MatplotlibImage(QWidget):
         self.import_button = QPushButton("Analyser")
         self.import_button.clicked.connect(self.import_file)
 
-
+        self.comment = QPushButton("Commenter")
+        self.comment.clicked.connect(self.commenter)
 
         
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
@@ -118,10 +119,14 @@ class MatplotlibImage(QWidget):
         """)
 
         # Layout principal (image + sliders + import button)
-        left_layout = QVBoxLayout()
+
         import_layout = QHBoxLayout()
         import_layout.addWidget(self.import_button)
         import_layout.addWidget(self.fichier_selec)
+        import_layout.addWidget(self.comment)
+        import_layout.setAlignment(self.comment, Qt.AlignRight)
+
+        left_layout = QVBoxLayout()
         left_layout.addLayout(import_layout)
         left_layout.addWidget(toolbar)
         left_layout.addWidget(self.canvas)
@@ -166,34 +171,11 @@ class MatplotlibImage(QWidget):
         self.mode_combo.setMinimumWidth(200)
         self.mode_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        self.save_button = QPushButton("Sauvegarde")
-        self.save_button.clicked.connect(self.save_as_pdf)
-
-        self.save_button.setMinimumWidth(200)
-        self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.save_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3A3A3A;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 10px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #4A4A4A;
-            }
-        """)
-
-
 
         right_layout = QVBoxLayout()
         right_layout.addStretch()  # Ajoute un espace flexible en haut
         right_layout.addWidget(self.choix_label)
         right_layout.addWidget(self.mode_combo)
-        right_layout.addWidget(self.text_edit)
-        right_layout.addWidget(self.save_button)
-
                 # Initialisation du QRangeSlider via la classe RangeSliderInitializer
     
         right_layout.addStretch()  # Ajoute un espace flexible en bas
@@ -224,6 +206,10 @@ class MatplotlibImage(QWidget):
         wavelength = self.slider.value()
         # Switch-like behavior pour appliquer le bon cmap
         selected_mode = self.mode_combo.currentText()
+
+        # Créer le titre dynamique
+        title = f"Image reconstituée en mode {selected_mode} à la longueur d'onde {wavelength} nm"
+        self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre au-dessus de l'image
 
         if selected_mode == "RGB":
             img_data = m.calcule_true_rgb_opti(wavelength, self.file_path)
@@ -257,215 +243,146 @@ class MatplotlibImage(QWidget):
         self.right_label = QLabel(f"{self.metadata['wavelength'][-1]} nm")
         self.slider.setRange(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
 
-
-
-    def save_as_pdf(self):
-        if not self.file_path:
-            print("Aucune image chargée.")
-            return
-
-        file_path, _ = QFileDialog.getSaveFileName(self, "Enregistrer sous", "", "Fichier PDF (*.pdf)")
-        if not file_path:
-            return
-
-        # Sauvegarde temporaire de l'image affichée par Matplotlib
-        temp_img_path = "temp_image.png"
-        self.figure.savefig(temp_img_path, dpi=300, bbox_inches='tight')  # Sauvegarde directe de la figure
-
-        # Création du PDF
-        pdf_canvas = canvas.Canvas(file_path, pagesize=A4)
-
-        # Ajout de l'image au PDF
-        img = Image.open(temp_img_path)
-        img_width, img_height = img.size
-        page_width, page_height = A4
-        scale = min(page_width / img_width, (page_height - 100) / img_height)
-        new_width = img_width * scale
-        new_height = img_height * scale
-
-        x_offset = (page_width - new_width) / 2
-        y_offset = page_height - new_height - 50
-        pdf_canvas.drawImage(temp_img_path, x_offset, y_offset, width=new_width, height=new_height)
-
-        # Sauvegarde du texte sur une autre page
-        pdf_canvas.showPage()
-        text = self.text_edit.toPlainText()
-        pdf_canvas.setFont("Helvetica", 12)
-        pdf_canvas.drawString(50, page_height - 50, "Commentaire de l'utilisateur :")
-
-        y_pos = page_height - 80
-        for line in text.split("\n"):
-            pdf_canvas.drawString(50, y_pos, line)
-            y_pos -= 20
-
-        pdf_canvas.save()
-        print(f"PDF enregistré à : {file_path}")
-
-
-class MatplotlibImage_DoubleCurseur2(QWidget):
-    def __init__(self, RGB_img):
+    def commenter(self):
+          self.text_matImage = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
+class MatplotlibImage_DoubleCurseur(QWidget):
+    def __init__(self, RGB_img, save_import):
         super().__init__()
+        self.file_path = None
         self.file_data = None
-        self.setStyleSheet("background-color: #2E2E2E;")
+        # self.setStyleSheet("background-color: #2E2E2E;")
         
-        self.figure, self.Img_ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+        # Création d'une figure avec 2 axes : 1 pour l'image et 1 pour le spectre
+        self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
         self.canvas = FigureCanvas(self.figure)
         self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        self.Img_ax.set_position([0, 0, 1, 1])
-        self.figure.patch.set_facecolor('#2E2E2E')
+        self.Img_ax.set_position([0, 0, 0.5, 1])  # Image occupe 60% de la largeur
+        self.spectrum_ax.set_position([0.6, 0.1, 0.5, 0.8])  # Augmenter la largeur
+        self.figure.tight_layout()  # Applique à toute la figure
+        self.canvas.setStyleSheet("background-color: #2E2E2E;")  # Application d'un fond gris
 
+        # Toolbar pour la navigation
         toolbar = NavigationToolbar(self.canvas, self)
         toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
         for action in toolbar.actions():
             if action.text() in ["Home", "Customize"]:
                 toolbar.removeAction(action)
 
-        #SLIDER MIN ET MAX
-        self.slider_min = QSlider(Qt.Horizontal)
-        self.slider_min.setRange(402, 998)
-        self.slider_min.setTickPosition(QSlider.TicksBelow)
-        self.slider_min.setTickInterval(2)
-        self.slider_min.setSingleStep(2)
-        self.slider_min.valueChanged.connect(self.update_slid_text)
-        self.slider_min.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        self.slider_min.sliderReleased.connect(self.update_spectre)
+        # Slider de contrôle pour les longueurs d'onde
+        self.slider_widget = CustomWidgetRangeSlider()
+        self.slider_widget.range_slider.sliderReleased.connect(self.update_image)
+        self.slider_widget.range_slider.sliderReleased.connect(self.update_spectre)
+        self.slider_widget.range_slider.valueChanged.connect(self.slider_widget.update_label)
+
+        # Bouton pour importer le fichier
+        self.import_button = QPushButton("Analyser")
+        self.import_button.clicked.connect(self.import_file)
+        self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        save_import.signals.fichier_importe.connect(self.update_file)
+
+        self.comment = QPushButton("Commenter")
+        self.comment.clicked.connect(self.commenter)
+
+
+        # Layout pour les sliders et le bouton d'importation
+        import_layout = QHBoxLayout()
+        import_layout.addWidget(self.import_button)
+        import_layout.addWidget(self.fichier_selec)
+        import_layout.addWidget(self.comment)
+        import_layout.setAlignment(self.comment, Qt.AlignRight)
         
-        self.slider_max = QSlider(Qt.Horizontal)
-        self.slider_max.setRange(402, 998)
-        self.slider_max.setTickPosition(QSlider.TicksBelow)
-        self.slider_max.setTickInterval(2)
-        self.slider_max.setSingleStep(2)
-        self.slider_max.valueChanged.connect(self.update_slid_text)
-        self.slider_max.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        self.slider_max.sliderReleased.connect(self.update_spectre)
-
-        #LABELS---------------------------------------------
-        font = QFont("Verdana", 20, QFont.Bold)
-        self.label = QLabel("Saisir une plage de longeur d'onde")
-        self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("color: white; font-size: 30px;")
-        self.label.setFont(font)
-        
-        self.left_label = QLabel("402 nm")
-        self.left_label.setStyleSheet("color: white; font-size: 20px;")
-        self.right_label = QLabel("998 nm")
-        self.right_label.setStyleSheet("color: white; font-size: 20px;")
-
-        #LAYOUTS---------------------------------------------
-        slider_layout = QVBoxLayout()
-        slider_layout.addWidget(self.slider_min)
-        slider_layout.addWidget(self.slider_max)
-
         img_layout = QVBoxLayout()
+        img_layout.addLayout(import_layout)
         img_layout.addWidget(toolbar)
         img_layout.addWidget(self.canvas)
-        img_layout.addLayout(slider_layout)
+        img_layout.addWidget(self.slider_widget)
 
-        img_layout.addWidget(self.label)
-
-        #SPECTRE---------------------------------------------
-        self.spectrum_figure, self.spectrum_ax = plt.subplots(figsize=(5, 5))
-        self.spectrum_canvas = FigureCanvas(self.spectrum_figure)
-        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
-        self.spectrum_ax.set_ylabel("Intensité", color='black')
+        # Spectre
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='white')
+        self.spectrum_ax.set_ylabel("Intensité", color='white')
         self.spectrum_ax.set_xlim(402, 998)
-        self.spectrum_ax.tick_params(axis='x', colors='black')
-        self.spectrum_ax.tick_params(axis='y', colors='black')
-        # Calcul initial du spectre global
-        self.spectrum_x = self.img.metadata['wavelength']
-        self.spectrum_x = np.array(self.spectrum_x)
-        self.spectrum_x = self.spectrum_x.astype(float)
+        self.spectrum_ax.tick_params(axis='x', colors='white')
+        self.spectrum_ax.tick_params(axis='y', colors='white')
 
-        self.img_s = np.array(self.img.load())  # ✅ Convertit en numpy.ndarray
-
-        print(f"Type après .load(): {type(self.img_s)}")
-        print(f"Shape après .load(): {self.img_s.shape}")  # Doit être (608, 968, 299)
-        self.spectrum_y = np.mean(self.img_s, axis=(0,1))  # Moyenne des pixels par bande
+        # Données fictives pour le spectre (à remplacer par vos données réelles)
+        self.spectrum_x = np.linspace(402, 998, 100)
+        self.spectrum_y = np.zeros_like(self.spectrum_x)  # Spectre vide initial
         self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
 
+        
 
-        main_layout = QHBoxLayout()
-        main_layout.addLayout(img_layout, 1)
-        main_layout.addWidget(self.spectrum_canvas, 1)
+        self.setLayout(img_layout)
 
-        self.setLayout(main_layout)
+        # Affichage de l'image initiale
         self.Img_ax.imshow(RGB_img)
         self.Img_ax.axis('off')
         self.canvas.draw()
 
-    def update_slid_text(self):
-        wl_min = self.slider_min.value()
-        wl_max = self.slider_max.value()
-        self.label.setText(f"{wl_min} nm à {wl_max} nm")
+    def update_file(self, path):
+        self.file_path = path
+        self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
 
     def update_image(self):
-        wl_min = self.slider_min.value()
-        wl_max = self.slider_max.value()
-        img_data = m.calcule_rgb_plage(self.file_data, wl_min, wl_max)
+        idx_min, idx_max = self.slider_widget.range_slider.value()
+        img_data = m.calcule_rgb_plage(self.file_data, self.metadata, idx_min, idx_max)
         img_array = np.array(img_data, dtype=np.uint8)
         self.Img_ax.clear()
+        title = f"Image reconstituée entre {self.metadata['wavelength'][idx_min]} nm et {self.metadata['wavelength'][idx_max]} nm"
         self.Img_ax.imshow(img_array)
+        self.Img_ax.set_title(title, fontsize=16, color='black', pad=20)  # Ajoute le titre
+
         self.Img_ax.axis('off')
         self.canvas.draw()
-    
-    def update_spectre(self):
-        wl_min = self.slider_min.value()
-        wl_max = self.slider_max.value()
-        k_min = round((wl_min - 400) / 2)
-        k_max = round((wl_max - 400) / 2)
-        if wl_min < wl_max: 
-            #mask = (self.spectrum_x >= wl_min) & (self.spectrum_x <= wl_max)
-            #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
-            self.spectrum_ax.plot(self.spectrum_x[k_min:k_max], self.spectrum_y[k_min:k_max], color='cyan')
-                       
 
-            #self.spectrum_ax.plot(self.spectrum_x[mask], self.spectrum_y[mask], color='cyan')
-            self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
-            self.spectrum_ax.set_ylabel("Intensité", color='black')
-            self.spectrum_ax.set_xlim(wl_min, wl_max)
-            self.spectrum_ax.tick_params(axis='x', colors='black')
-            self.spectrum_ax.tick_params(axis='y', colors='black')
-            self.spectrum_figure.tight_layout()
-            self.spectrum_canvas.draw()
+    def update_spectre(self):
+        wl_min, wl_max = self.slider_widget.range_slider.value()
+        self.spectrum_ax.clear()
+
+        self.spectrum_ax.plot(self.metadata["wavelength"][wl_min:wl_max], self.spectrum_y[wl_min:wl_max], color='cyan')
+
+        self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
+        self.spectrum_ax.set_ylabel("Intensité", color='black')
+        self.spectrum_ax.set_xlim(self.metadata["wavelength"][wl_min], self.metadata["wavelength"][wl_max])
+        self.spectrum_ax.set_xticks([self.metadata["wavelength"][wl_min], self.metadata["wavelength"][wl_max]])
+        self.spectrum_ax.set_xticklabels([f"{float(self.metadata['wavelength'][wl_min]):.0f}", f"{float(self.metadata['wavelength'][wl_max]):.0f}"])
+        # self.spectrum_ax.set_xticklabels(f"{self.metadata['wavelength'][wl_min]}", f"{self.metadata['wavelength'][wl_max]}")
+        self.spectrum_ax.tick_params(axis='x', colors='black')
+        self.spectrum_ax.tick_params(axis='y', colors='black')
+        self.figure.tight_layout()
+        self.canvas.draw()
 
     def import_file(self):
-        options = QFileDialog.Options()
-        self.file_path_noload, _ = QFileDialog.getOpenFileName(
-            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
-
-        if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
-            print("Aucun fichier sélectionné.")
-            return
         self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
-        # Afficher l'animation de chargement
-        QApplication.processEvents() 
+        QApplication.processEvents()
 
-        
-        # Stopper l'animation après le chargement
-        
-        self.file_data = sp.open_image(self.file_path_noload)
+        self.file_data = sp.open_image(self.file_path)
         self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_data.metadata  # Récupérer les métadonnées
         self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
         self.Img_ax.axis('off')
 
-        img_data = m.calcule_rgb_plage(self.file_data, 0, 1)
-        img_array = np.array(img_data, dtype=np.uint8)
+        img_data_calculated = m.calcule_rgb_plage(self.file_data, self.metadata, 0, int(self.metadata["bands"])-1)
+        img_array = np.array(img_data_calculated, dtype=np.uint8)
         self.Img_ax.clear()
         self.Img_ax.imshow(img_array)
         self.Img_ax.axis('off')
         self.canvas.draw()
 
-
-        self.slider_min.setRange(0, int(self.metadata["bands"])-1)
-        self.slider_max.setRange(0, int(self.metadata["bands"])-1)
+        self.slider_widget.range_slider.setRange(0, int(self.metadata["bands"])-1)
+        self.slider_widget.setWavelenghts(self.metadata["wavelength"])
 
         self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+        self.spectrum_x = np.array(self.metadata["wavelength"])
+        self.spectrum_x = self.spectrum_x.astype(float)
+        self.spectrum_y = np.mean(self.img_data, axis=(0, 1))  # Moyenne des pixels par bande
+        self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
 
-        self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
+        self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
 
+    def commenter(self):
+        self.text_matDouble = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
 
-class MatplotlibImage_DoubleCurseur(QWidget):
+class MatplotlibImage_DoubleCurseur2(QWidget):
     def __init__(self, RGB_img, save_import):
         super().__init__()
         self.file_data = None
@@ -719,6 +636,11 @@ class MatplotlibImage_3slid(QWidget):
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
         self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
         save_import.signals.fichier_importe.connect(self.update_file)
+
+        self.comment = QPushButton("Commenter")
+        self.comment.cliked.connect(self.commenter())
+
+
         self.import_button.setStyleSheet("""
             QPushButton {
                 background-color: #3A3A3A;
@@ -803,8 +725,10 @@ class MatplotlibImage_3slid(QWidget):
         import_layout = QHBoxLayout()
         import_layout.addWidget(self.import_button)
         import_layout.addWidget(self.fichier_selec)
+        import_layout.addWidget(self.comment)
         import_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
 
+        import_layout.setAlignment(self.comment, Qt.AlignRight)
 
         img_layout = QVBoxLayout()
         img_layout.addLayout(import_layout)
@@ -858,20 +782,16 @@ class MatplotlibImage_3slid(QWidget):
 
 
     def update_image(self):
-        start_time = time.time()
+
 
         wl_r = self.slid_r.value()
         wl_g = self.slid_g.value()
         wl_b = self.slid_b.value()
-        # img_data = m.calcule_rgb_3slid(wl_r, wl_g, wl_b, self.file_data)
-        # self.Img_ax.clear()
-        # self.Img_ax.imshow(self.file_data[:,:,(wl_r,wl_g,wl_b)])
-        self.imgopt.set_data(self.file_data[:, :, (wl_r, wl_g, wl_b)])
+        title = f"Image reconstituée interpretant la longueur d'onde R comme {self.metadata['wavelength'][wl_r]} nm, G: {self.metadata['wavelength'][wl_g]} nm, B: {self.metadata['wavelength'][wl_b]} nm"
+        self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre
 
-        # self.Img_ax.axis('off')
-        # self.canvas.draw()
+        self.imgopt.set_data(self.file_data[:, :, (wl_r, wl_g, wl_b)])
         self.canvas.draw_idle()
-        print(f"Temps de mise à jour: {time.time() - start_time} secondes")
 
 
 
@@ -879,7 +799,6 @@ class MatplotlibImage_3slid(QWidget):
         self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
         # Afficher l'animation de chargement
         QApplication.processEvents() 
-
         
         # Stopper l'animation après le chargement
         
@@ -901,10 +820,7 @@ class MatplotlibImage_3slid(QWidget):
         self.value_g.setText(" ")
         self.value_b.setText(" ")
 
-
-
         self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
-
     
     def update_spectrum(self,  wavelengths, reflectance_values):
         self.spectrum_ax.clear()
@@ -922,7 +838,7 @@ class MatplotlibImage_3slid(QWidget):
         # Remettre les vraies longueurs d'onde en labels sur l'axe X
         self.spectrum_ax.set_xticks(x_positions)
         self.spectrum_ax.set_xticklabels(wavelengths)
-
+        self.figure.tight_layout()
         self.canvas.draw()  # Rafraîchir l'affichage
 
     def on_click(self, event):
@@ -954,7 +870,8 @@ class MatplotlibImage_3slid(QWidget):
         # Mise à jour de l'affichage
         self.update_spectrum(wavelengths, reflectance_values)
 
-
+    def commenter(self):
+        self.text_mat3slid = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
 class Save_import(QWidget):
 
     def __init__(self, matplotlib_widgets=None):
@@ -990,7 +907,7 @@ class Save_import(QWidget):
         self.file_path = None
         self.setStyleSheet("background-color: #2E2E2E;")
 
-        self.save_button = QPushButton("Sauvegarde")
+        self.save_button = QPushButton("Sauvegarder")
         self.save_button.clicked.connect(self.save_all_as_pdf)
 
         self.save_button.setMinimumWidth(200)
@@ -1008,11 +925,6 @@ class Save_import(QWidget):
                 background-color: #4A4A4A;
             }
         """)
-
-
-
-
-
 
         import_layout = QHBoxLayout()
         import_layout.addStretch()  # Ajoute un espace flexible en haut
@@ -1033,21 +945,51 @@ class Save_import(QWidget):
 
 
     def save_all_as_pdf(self):
+
         file_path, _ = QFileDialog.getSaveFileName(self, "Enregistrer sous", "", "Fichier PDF (*.pdf)")
         if not file_path:
             return
 
-        # Création d'un nouveau PDF
+        # Création d'un seul PDF
         pdf_canvas = canvas.Canvas(file_path, pagesize=A4)
         page_width, page_height = A4
 
-        # Sauvegarder chaque figure
-        for widget in self.matplotlib_widgets:
-            # Sauvegarde de chaque figure de type MatplotlibImage
-            if hasattr(widget, 'figure'):
-                save_exporter = SaveAsPDF(widget.figure, self.text_edit)
-                save_exporter.save_as_pdf(file_path)
+        commentaires = []
+        commentaires.append(self.)
+        for i, widget in enumerate(self.matplotlib_widgets):
+            text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire",
+                                                     f"Commentaire pour l'image {i+1} :", "")
+            if not ok:  
+                text = "Pas de commentaire."
+            commentaires.append(text)
 
+        for i, widget in enumerate(self.matplotlib_widgets):
+            if hasattr(widget, 'figure'):  # Vérifier si le widget a bien une figure Matplotlib
+                temp_img_path = f"temp_image_{i}.png"  # Nom unique pour chaque figure
+                widget.figure.canvas.draw()  # Forcer le dessin de la figure avant de la sauvegarder
+
+                widget.figure.savefig(temp_img_path, dpi=300, bbox_inches='tight')
+
+                img = Image.open(temp_img_path)
+                img.show()
+                img_width, img_height = img.size
+                scale = min(page_width / img_width, (page_height - 100) / img_height)
+                new_width = img_width * scale
+                new_height = img_height * scale
+
+                x_offset = (page_width - new_width) / 2
+                y_offset = page_height - new_height - 50
+                pdf_canvas.drawImage(temp_img_path, x_offset, y_offset, width=new_width, height=new_height)
+                 # Ajouter le commentaire sous l'image
+                pdf_canvas.setFont("Helvetica", 12)
+                y_pos = y_offset - 20
+                for line in commentaires[i].split("\n"):
+                    pdf_canvas.drawString(50, y_pos, line)
+                    y_pos -= 15
+
+                pdf_canvas.showPage()  # Nouvelle page pour chaque image
+
+        pdf_canvas.save()
         print(f"PDF enregistré à : {file_path}")
 
     def import_file(self):
@@ -1071,49 +1013,6 @@ class Save_import(QWidget):
         else:
             return self.file_path_noload
 
-class SaveAsPDF:
-    def __init__(self, figure, text_edit):
-        self.figure = figure
-        self.text_edit = text_edit
-
-    def save_as_pdf(self, file_path):
-        if not self.figure:
-            print("Aucune image chargée.")
-            return
-
-        # Sauvegarde temporaire de l'image affichée par Matplotlib
-        temp_img_path = "temp_image.png"
-        self.figure.savefig(temp_img_path, dpi=300, bbox_inches='tight')  # Sauvegarde directe de la figure
-
-        # Création du PDF
-        pdf_canvas = canvas.Canvas(file_path, pagesize=A4)
-
-        # Ajout de l'image au PDF
-        img = Image.open(temp_img_path)
-        img_width, img_height = img.size
-        page_width, page_height = A4
-        scale = min(page_width / img_width, (page_height - 100) / img_height)
-        new_width = img_width * scale
-        new_height = img_height * scale
-
-        x_offset = (page_width - new_width) / 2
-        y_offset = page_height - new_height - 50
-        pdf_canvas.drawImage(temp_img_path, x_offset, y_offset, width=new_width, height=new_height)
-
-        # Sauvegarde du texte sur une autre page
-        pdf_canvas.showPage()
-        text = self.text_edit.toPlainText()
-        pdf_canvas.setFont("Helvetica", 12)
-        pdf_canvas.drawString(50, page_height - 50, "Commentaire de l'utilisateur :")
-
-        y_pos = page_height - 80
-        for line in text.split("\n"):
-            pdf_canvas.drawString(50, y_pos, line)
-            y_pos -= 20
-
-        pdf_canvas.save()
-        print(f"PDF enregistré à : {file_path}")
-        
 class SignalEmitter(QObject):
     fichier_importe = Signal(str)  # Signal émis lors de l'importation d'un fichier
 
@@ -1134,14 +1033,10 @@ class MainWindow(QMainWindow):
         self.save_import.matplotlib_widgets = [
             self.matplotlib_widget_rgb, 
             self.matplotlib_widget_double, 
-            self.matplotlib_widget_3slid
-        ]
+            self.matplotlib_widget_3slid]
         self.save_import.signals.fichier_importe.connect(self.matplotlib_widget_rgb.update_file)
         self.save_import.signals.fichier_importe.connect(self.matplotlib_widget_double.update_file)
         self.save_import.signals.fichier_importe.connect(self.matplotlib_widget_3slid.update_file)
-
-
-
 
         self.tabs = QTabWidget()
         self.tab1 = QWidget()
@@ -1149,10 +1044,10 @@ class MainWindow(QMainWindow):
         self.tab3 = QWidget()
         self.tab4 = QWidget()
 
-        self.tabs.addTab(self.tab1, "WL unique")
-        self.tabs.addTab(self.tab2, "Plage WL")
-        self.tabs.addTab(self.tab3, "3 WL")
-        self.tabs.addTab(self.tab4, "Accueil")
+        self.tabs.addTab(self.tab1, "Accueil")
+        self.tabs.addTab(self.tab2, "Unique WL")
+        self.tabs.addTab(self.tab3, "Plage WL")
+        self.tabs.addTab(self.tab4, "RGB-3sliders")
 
         self.tabs.setStyleSheet("""
             QTabBar::tab {
@@ -1167,25 +1062,22 @@ class MainWindow(QMainWindow):
                 font-weight: bold;
             }
         """)        
-        self.tabs.addTab(self.tab2, "Plage WL")
-        self.tabs.addTab(self.tab3, "3 WL")
 
 
         layout = QHBoxLayout()
-        # layout.addWidget(self.matplotlib_widget_gris)
-        layout.addWidget(self.matplotlib_widget_rgb)
+        layout.addWidget(self.save_import)
         self.tab1.setLayout(layout)
 
         layout2 = QVBoxLayout()
-        layout2.addWidget(self.matplotlib_widget_double)
+        layout2.addWidget(self.matplotlib_widget_rgb)
         self.tab2.setLayout(layout2)
 
         layout3 = QVBoxLayout()
-        layout3.addWidget(self.matplotlib_widget_3slid)
+        layout3.addWidget(self.matplotlib_widget_double)
         self.tab3.setLayout(layout3)
 
         layout4 = QVBoxLayout() 
-        layout4.addWidget(self.save_import)
+        layout4.addWidget(self.matplotlib_widget_3slid)
         self.tab4.setLayout(layout4)
 
         self.setCentralWidget(self.tabs)
@@ -1199,8 +1091,6 @@ class MainWindow(QMainWindow):
             background-color: #2E2E2E;  /* Fond gris foncé */
         }
         """)
-
-
 
 
 

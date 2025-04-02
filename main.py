@@ -220,8 +220,16 @@ def calcule_rgb_plage(img, metadata, wl_min_idx, wl_max_idx):
     
     # Normalisation
     true_rgb_img -= true_rgb_img.min()
-    true_rgb_img /= true_rgb_img.max()
-    true_rgb_img *= 255
+    
+    if true_rgb_img.max() > 0:
+        true_rgb_img /= true_rgb_img.max()
+        true_rgb_img *= 255
+
+    else : 
+        true_rgb_img.fill(0)
+        
+    true_rgb_img = np.nan_to_num(true_rgb_img, nan=0.0, posinf=255, neginf=0.0)
+
     
     return true_rgb_img.astype(np.uint8)
 
