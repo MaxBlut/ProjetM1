@@ -181,7 +181,7 @@ class MainWindow_draw_cluster(hyperspectral_appli):
         # Plot the mean spectrum of the selected cluster 
         print("Plotting")
         
-        self.axs[1].plot(mean_spectre_of_cluster(self.map, self.data_img,True), label = f"poly n°{self.overlay_number}")
+        self.axs[1].plot(self.original_wavelengths,mean_spectre_of_cluster(self.map, self.data_img,True), label = f"poly n°{self.overlay_number}")
         self.delete("overlay")
         self.canvas.draw("legend")
         self.overlay_number+=1

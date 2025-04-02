@@ -14,7 +14,7 @@ from CustomElement import CustomCanvas,hyperspectral_appli
 
 from math import sqrt
 sqrt(0)
-class PlotApp(hyperspectral_appli):
+class veget_indices(hyperspectral_appli):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Dropdown Plotter")
@@ -152,6 +152,6 @@ class PlotApp(hyperspectral_appli):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = PlotApp()
+    window = veget_indices()
     window.show()
     sys.exit(app.exec())

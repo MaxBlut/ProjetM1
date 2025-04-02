@@ -2,6 +2,7 @@ import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBoxLayout, QLabel
 from main_dessin_cluster import MainWindow_draw_cluster
 from main_double_kmean_sklearn import KMeansApp
+from vegetation_indices import veget_indices
 
 import spectral as sp
 sp.settings.envi_support_nonlowercase_params = True
@@ -27,7 +28,7 @@ class MainWindow(QMainWindow):
         # Add tabs to the QTabWidget
         self.tabs.addTab(self.tab1, "Draw Cluster")
         self.tabs.addTab(self.tab2, "Double KMeans")
-        self.tabs.addTab(self.tab3, "Tab 3")
+        self.tabs.addTab(self.tab3, "Vegetation Indices")
 
         self.tabs.currentChanged.connect(self.on_tab_changed)
 
@@ -60,8 +61,8 @@ class MainWindow(QMainWindow):
 
     def setup_tab3(self):
         layout = QVBoxLayout()
-        label = QLabel("This is Tab 3")
-        layout.addWidget(label)
+        all = veget_indices()
+        layout.addWidget(all)
         self.tab3.setLayout(layout)
 
     
