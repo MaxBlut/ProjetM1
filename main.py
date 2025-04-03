@@ -97,33 +97,9 @@ def calcule_rgb_3slid(wl_r, wl_g, wl_b, reflectance_image):
     wlMin, wlMax = 402, 998  # Plage de longueurs d'onde
     if reflectance_image is None:
         print("Erreur : image non chargée correctement.")
-    # Calcul des bandes respectives
-
-    # r_reflectance = reflectance_image.read_band(round((wl_r - wlMin) / 2))
-    # g_reflectance = reflectance_image.read_band(round((wl_g - wlMin) / 2))
-    # b_reflectance = reflectance_image.read_band(round((wl_b - wlMin) / 2))
-
+  
     reflectance_image = reflectance_image[:,:,(round((wl_r - wlMin) / 2),round((wl_g - wlMin) / 2),round((wl_b - wlMin) / 2))]
-    # Conversion en tableau NumPy
-    # r_reflectance = np.array(r_reflectance, dtype=np.float32)
-    # g_reflectance = np.array(g_reflectance, dtype=np.float32)
-    # b_reflectance = np.array(b_reflectance, dtype=np.float32)
 
-    # # Calcul des valeurs RGB pour chaque longueur d'onde
-    # r, g, b = nmToRGB(wl_r)
-    # true_rgb_img = np.zeros((r_reflectance.shape[0], r_reflectance.shape[1], 3), dtype=np.uint8)
-
-    # # Appliquer les réflexions aux canaux respectifs
-    # true_rgb_img[..., 0] = np.clip(r * r_reflectance * 255, 0, 255).astype(np.uint8)  # Rouge
-    # true_rgb_img[..., 1] = np.clip(g * g_reflectance * 255, 0, 255).astype(np.uint8)  # Vert
-    # true_rgb_img[..., 2] = np.clip(b * b_reflectance * 255, 0, 255).astype(np.uint8)  # Bleu
-
-    # Affichage de l'image
-    # plt.imshow(true_rgb_img)
-    # plt.title(f"Image RGB - R: {wl_r}nm, G: {wl_g}nm, B: {wl_b}nm")
-    # plt.axis('off')  # Ne pas afficher les axes
-    # plt.show()
-    # return true_rgb_img
     return reflectance_image
 
 def calcule_true_gray_opti(wl, reflectance_image):
@@ -143,16 +119,6 @@ def calcule_true_gray_opti(wl, reflectance_image):
 
     # Mise à l'échelle des valeurs pour les convertir en niveaux de gris (0 à 255)
     gray_img = (reflectance * 255).astype(np.uint8)
-
-    # Calcul du maximum des pixels pour vérifier si la saturation est possible
-    # max_value = np.max(gray_img)
-
-    # Vérification si la composante maximale peut être multipliée par 2 sans dépasser 255
-    # if max_value * 2 <= 255:
-    #     gray_img *= 2
-    # else:
-    #     gray_img = np.clip(gray_img, 0, 255)  # Si saturation, on limite à 255
-
     return gray_img
 
 
@@ -227,45 +193,11 @@ def calcule_rgb_plage(img, metadata, wl_min_idx, wl_max_idx):
 
     else : 
         true_rgb_img.fill(0)
-        
+
     true_rgb_img = np.nan_to_num(true_rgb_img, nan=0.0, posinf=255, neginf=0.0)
 
     
     return true_rgb_img.astype(np.uint8)
-
-# def calcule_rgb_plage(img, wl_min, wl_max):
-#     """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde de manière optimisée."""
-    
-#     nblines, nbcolones, nb_bandes = img.shape
-
-#     # Calculer les indices des longueurs d'onde
-#     indices = [(wl, round((wl - 400) / 2)) for wl in range(wl_min, wl_max + 1, 2)]
-#     indices = [(wl, k) for wl, k in indices if 0 <= k < nb_bandes]
-
-#     if not indices:
-#         print("Aucune longueur d'onde valide dans la plage donnée.")
-#         return None
-
-#     # Initialiser les matrices RGB
-#     true_rgb_img = np.zeros((nblines, nbcolones, 3), dtype=np.float32)
-
-#     # Charger toutes les bandes en une seule fois pour accélérer la lecture
-#     all_bands = np.array([img.read_band(k) for _, k in indices])
-
-#     # Calcul des poids RGB
-#     rgb_weights = np.array([nmToRGB(wl) for wl, _ in indices])
-
-#     # Appliquer les poids RGB via un produit matriciel
-#     true_rgb_img[:, :, 0] = np.tensordot(all_bands, rgb_weights[:, 0], axes=(0, 0))
-#     true_rgb_img[:, :, 1] = np.tensordot(all_bands, rgb_weights[:, 1], axes=(0, 0))
-#     true_rgb_img[:, :, 2] = np.tensordot(all_bands, rgb_weights[:, 2], axes=(0, 0))
-
-#     # Normalisation
-#     true_rgb_img -= true_rgb_img.min()
-#     true_rgb_img /= true_rgb_img.max()
-#     true_rgb_img *= 255
-
-#     return true_rgb_img.astype(np.uint8)
 
 class CustomQRangeSlider(QRangeSlider):
     """Custom QRangeSlider that emits a signal when the slider is released."""
@@ -328,28 +260,6 @@ class CustomWidgetRangeSlider(QWidget):
 
 def main():
     img = calcule_true_rgb_opti(550)
-    #img2 = calcule_rgb_plage(400, 700)
-    # # Conversion de la liste en un tableau NumPy
-    # array = np.array(img, dtype=np.uint8)
-
-    # # Utilisation de Matplotlib pour afficher l'image
-    # fig, ax = plt.subplots()
-    # ax.imshow(array)
-    # ax.axis('off')  # Masquer les axes
-
-    # # Connexion de la gestion de l'événement de fermeture
-    # fig.canvas.mpl_connect('close_event',on_close )
-
-    # # Affichage de la fenêtre et attente de la fermeture
-    # plt.show()
-
-    # # Sauvegarde de l'image
-    # image = Image.fromarray(array, mode='RGB')
-    # image.save("output_image.png")
-
-
-
     return 0
 
-#print(main())
 
