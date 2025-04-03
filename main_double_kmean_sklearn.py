@@ -39,7 +39,6 @@ class KMeansApp(hyperspectral_appli):
 
 
     def variable_init(self):
-        self.param_has_changed_fkm = True           # 
         self.param_has_changed_skm = True           # variables booleene pour signaler lorsqu'une modification a été faite aux parametre du clustering
         self.param_has_changed_spectra = True       #   
         self.file_path = None   # chemin d'acces du fichier HDR
@@ -56,19 +55,8 @@ class KMeansApp(hyperspectral_appli):
 
 
     def init_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
 
-        #  Remove existing layout if there is one
-        if central_widget.layout() is not None:
-            old_layout = central_widget.layout()
-            while old_layout.count():
-                item = old_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-            old_layout.deleteLater()
-
-        layout = QVBoxLayout(central_widget)
+        layout = QVBoxLayout()
 
         # File Selection
         file_layout = QHBoxLayout()
@@ -129,6 +117,7 @@ class KMeansApp(hyperspectral_appli):
 
         # self.canvas.mpl_connect("draw_event", self.update_legend) # emits signal when canvas is updated
         self.canvas.mpl_connect("button_press_event", self.on_click)
+        self.setLayout(layout)
 
 
     def set_param_has_changed(self):
@@ -151,14 +140,13 @@ class KMeansApp(hyperspectral_appli):
     
     def apply_first_kmean(self):
         if self.data_img is not None:
-            if self.param_has_changed_fkm or self.first_cluster_map is None: # on ne calcule les clusters que si les parametre ont changé ou si il n'existe pas deja de cluster map
+            if self.first_cluster_map is None: # on ne calcule les clusters que si les parametre ont changé ou si il n'existe pas deja de cluster map
                 t1 = time()
                 reshaped_data = self.data_img.reshape(-1, self.data_img.shape[-1]) # Reshape to (n_lines*n_colones, n_bands)
                 kmeans = MiniBatchKMeans(n_clusters=2, n_init='auto', max_iter=10, random_state=42)
                 labels = kmeans.fit_predict(reshaped_data[:,::10]) # uses a fraction of the bands for clustering to speed up the process
                 self.first_cluster_map = labels.reshape(self.data_img.shape[:-1])
                 print("first kmean executed in:", time()-t1)
-                self.param_has_changed_fkm = False
                 self.param_has_changed_skm = True       # met la variable a True pour recharger le second Kmean
             custom_clear(self.axs[0])
             self.axs[0].set_title("hyperspectral image")

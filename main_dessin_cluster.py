@@ -41,17 +41,6 @@ class MainWindow_draw_cluster(hyperspectral_appli):
 
 
     def init_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-
-        #  Remove existing layout if there is one
-        if central_widget.layout() is not None:
-            old_layout = central_widget.layout()
-            while old_layout.count():
-                item = old_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-            old_layout.deleteLater()
 
         
         self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
@@ -85,7 +74,7 @@ class MainWindow_draw_cluster(hyperspectral_appli):
      
         
         
-        layout = QVBoxLayout(central_widget)
+        layout = QVBoxLayout()
         layout.addLayout(file_layout)
         layout.addWidget(self.label)
         layout.addWidget(self.toolbar)

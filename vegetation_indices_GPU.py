@@ -1,6 +1,6 @@
 import sys
 import random
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QComboBox, QFileDialog
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QComboBox, QFileDialog,QHBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -12,8 +12,9 @@ from utiles import closest_id
 
 from CustomElement import CustomCanvas,hyperspectral_appli
 
-from math import sqrt
 
+from vispy import scene
+from vispy.scene import visuals, transforms
 
 
 class veget_indices(hyperspectral_appli):
@@ -34,8 +35,9 @@ class veget_indices(hyperspectral_appli):
 
     def init_ui(self):
         
-        # Layout
+        # Layouts
         layout = QVBoxLayout()
+        figure_layout = QHBoxLayout()
 
         # Dropdown menu (ComboBox)
         self.dropdown = QComboBox()
@@ -54,15 +56,23 @@ class veget_indices(hyperspectral_appli):
 
 
         # Matplotlib Figure and Canvas
-        self.figure, self.axs = plt.subplots(1, 2, figsize=(5, 5))
-        self.axs[1].axis('off')
-        self.axs[1] = self.figure.add_subplot(1, 2, 2, projection='3d')
-        
+        self.axs=[None]
+        self.figure, self.axs[0] = plt.subplots(1, 1, figsize=(5, 5))
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
         self.canvas = FigureCanvas(self.figure)
+        figure_layout.addWidget(self.canvas)
 
-        
-        layout.addWidget(self.canvas)
+        # Create a VisPy canvas (GPU-rendered)
+        self.SceneCanvas = scene.SceneCanvas(keys='interactive', bgcolor='white')
+        figure_layout.addWidget(self.SceneCanvas.native)
+
+        # Create a 3D view
+        self.view = self.SceneCanvas.central_widget.add_view()
+        self.view.camera = 'turntable'  # Interactive 3D rotation
+
+
+
+        layout.addLayout(figure_layout)
 
         # toolbar
         self.toolbar = NavigationToolbar(self.canvas, self)
@@ -72,11 +82,7 @@ class veget_indices(hyperspectral_appli):
         self.populate_drop_down()
 
         # Connect mouse movement event
-        self.figure.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
-
-        # Connect events
-        self.figure.canvas.mpl_connect("motion_notify_event", self.on_mouse_drag)
-        self.figure.canvas.mpl_connect("button_release_event", self.on_mouse_release)
+        self.SceneCanvas.events.mouse_press.connect(self.on_mouse_click)
 
        
 
@@ -112,7 +118,7 @@ class veget_indices(hyperspectral_appli):
         # equation = self.dropdown.currentText()
         selected_index = self.dropdown.currentIndex()  # Get selected index
         equation = self.dropdown.itemData(selected_index)
-        print(equation)
+        # print(equation)
         # Extract wavelength values from the equation
         found_wavelengths = re.findall(r'R(\d+)', equation)
         
@@ -122,7 +128,6 @@ class veget_indices(hyperspectral_appli):
             print("wl not found in the equation text")
             return -2
         self.axs[0].clear() 
-        self.axs[1].clear() 
         for wl in found_wavelengths:
             wl = int(wl)
             band_index = closest_id(wl,self.original_wavelengths,accuracy=2)
@@ -138,38 +143,66 @@ class veget_indices(hyperspectral_appli):
         except Exception as e:
             raise ValueError(f"Error evaluating equation: {e}")
         self.axs[0].imshow(result,cmap='nipy_spectral')
-        X ,Y = np.linspace(0,result.shape[1],result.shape[1]),np.linspace(0,-result.shape[0], result.shape[0])
-        X, Y = np.meshgrid(X,Y)
-        # print(X.shape)
-        # print(Y.shape)
-        self.high_res = self.axs[1].plot_surface(X,Y,result, cmap='nipy_spectral')
-        self.low_res = self.axs[1].plot_wireframe(X[::50, ::50],Y[::50, ::50],result[::50,::50], cmap='nipy_spectral',alpha=0.5)
-        self.low_res.set_visible(False)
-        self.canvas.draw()
+        self.plot_3D(result)
         return 
     
 
-    def on_mouse_move(self, event):
-        if event.button == 1:  # Left mouse button
-            self.axs[1].view_init(elev=self.axs[1].elev , azim=self.axs[1].azim,roll=0)  # Keep elevation fixed  elev=35,
-            self.figure.canvas.draw_idle()  # Update plot
+    def plot_3D(self, result):
+        X ,Y = np.linspace(0,result.shape[1],result.shape[1]),np.linspace(0,-result.shape[0], result.shape[0])
+        X, Y = np.meshgrid(X,Y)
+        X_flat, Y_flat, Z_flat = X.flatten(), Y.flatten(), result.flatten()
+
+        # Create face indexes for Mesh grid
+        rows, cols = X.shape
+        faces = []
+        for i in range(rows - 1):
+            for j in range(cols - 1):
+                # Create two triangles per square
+                idx1 = i * cols + j
+                idx2 = i * cols + (j + 1)
+                idx3 = (i + 1) * cols + j
+                idx4 = (i + 1) * cols + (j + 1)
+                faces.append([idx1, idx2, idx3])  # First triangle
+                faces.append([idx2, idx4, idx3])  # Second triangle
+
+        faces = np.array(faces, dtype=np.uint32)
+        if hasattr(self, "mesh") and self.mesh is not None:
+            self.mesh.parent = None  # Reset reference
+
+        Z_norm = (Z_flat - Z_flat.min()) / (Z_flat.max() - Z_flat.min())  # Normalize
+        Z_norm *= 100
+        # colors = np.column_stack((color_scale, np.zeros_like(color_scale), 1 - color_scale, np.ones_like(color_scale)))
+        self.mesh = visuals.Mesh(vertices=np.column_stack((X_flat, Y_flat, Z_flat)), 
+                                 faces=faces, shading='smooth')#edge_color=None,
+        self.view.add(self.mesh)
+        self.plot_3D_axes(result)
+        self.view.camera.center = (result.shape[1]//2, -result.shape[0]//2, 0)
+        self.canvas.draw()
 
 
-    def on_mouse_drag(self, event):
-        """ While rotating, show the low-resolution version. """
-        
-        if event.button == 1 and self.high_res and self.low_res:  # Left mouse button
-            self.high_res.set_visible(False)  # Hide heavy plot
-            self.low_res.set_visible(True)  # Show low-poly version
-            self.figure.canvas.draw_idle()  # Refresh plot faster
+    def plot_3D_axes(self, result):
+        # Create X, Y, Z axes
+        shape = result.shape
+        self.x_axis = scene.Axis(pos=[[-1, 0], [shape[1], 0]], tick_direction=(0, -1), axis_color="red", tick_color="red")
+        self.y_axis = scene.Axis(pos=[[0, 1], [0, -shape[0]]], tick_direction=(-1, 0), axis_color="green", tick_color="green")
+        self.z_axis = scene.Axis(pos=[[-5, 0], [5, 0]], tick_direction=(0, -1), axis_color="blue", tick_color="blue")
+        self.z_axis.transform = scene.transforms.MatrixTransform()  # its acutally an inverted xaxis
+        self.z_axis.transform.rotate(90, (0, 1, 0))  # rotate cw around yaxis
+        # self.z_axis.transform.rotate(-45, (0, 0, 1))  # tick direction towards (-1,-1)
+        # Apply transformations to correctly align them in 3D space
+        for axis in (self.x_axis, self.y_axis, self.z_axis):
+            # axis.transform = scene.STTransform(scale=(1, 1, 1))  # Scale appropriately
+            self.view.add(axis)  # Add to scene
 
 
-    def on_mouse_release(self,event):
-        """ When releasing the mouse, restore full quality. """
-        if self.high_res and self.low_res:
-            self.high_res.set_visible(True)  # Show high-res plot
-            self.low_res.set_visible(False)  # Hide low-res plot
-            self.figure.canvas.draw_idle()  # Refresh plot
+    def on_mouse_click(self, event):
+        """ Dynamically move the camera to focus on a clicked point. """
+        if event.button == 3:  # Left-click only
+            pos = event.pos  # Get mouse position
+            picked = self.view.scene.node_transform(self.mesh).map(pos)  # Map to scene coords
+            if picked is not None:
+                self.view.camera.center = (picked[:3][0],-picked[:3][1],0 ) # Move camera to the clicked point
+                print(f"Centered on: {picked[:3]}")  # Debugging
 
 
 

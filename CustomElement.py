@@ -10,7 +10,7 @@ import numpy as np
 from tkinter import messagebox
 from qtpy.QtCore import Qt
 import spectral as sp
-
+sp.settings.envi_support_nonlowercase_params = True
 
 from matplotlib.legend import Legend
 from matplotlib.patches import Patch
@@ -515,7 +515,7 @@ class CustomCanvas(FigureCanvas):
 
 
 
-class hyperspectral_appli(QMainWindow):
+class hyperspectral_appli(QWidget):
 
     def display_image(self):
         if self.data_img is not None:
@@ -538,20 +538,20 @@ class hyperspectral_appli(QMainWindow):
             self.axs[0].set_title("hyperspectral image")
             self.canvas.draw()
     
-    
+
     def load_file(self):
         """charge le fichié selectionné par l'utilisateur """
-        self.param_has_changed_fkm = True 
+        
         self.variable_init()
         self.file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
         if self.file_path:
             if hasattr(self, "file_label"):
                 self.file_label.setText(f"Fichier : {self.file_path}")
             self.extract_hdr_info()
-            print(self.file_path, " selected")
-        custom_clear(self.axs[0])
-        custom_clear(self.axs[1])
-        self.axs[1].set_title("spectrum")
+            # print(self.file_path, " selected")
+        for ax in self.axs:
+            custom_clear(ax)
+        # self.axs[1].set_title("spectrum")
         self.display_image()
         if hasattr(self, "slider_widget"):
             self.slider_widget.setWavelenghts(self.original_wavelengths)
@@ -570,7 +570,7 @@ class hyperspectral_appli(QMainWindow):
         else:
             print("wavelength metadata not found")
             return
-        print("metadata found")
+        # print("metadata found")
         self.original_wavelengths = [float(i) for i in self.original_wavelengths]
             
         self.croped_wavelength = self.original_wavelengths
