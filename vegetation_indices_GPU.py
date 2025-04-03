@@ -69,7 +69,7 @@ class veget_indices(hyperspectral_appli):
         # Create a 3D view
         self.view = self.SceneCanvas.central_widget.add_view()
         self.view.camera = 'turntable'  # Interactive 3D rotation
-
+        self.view.camera.scale_factor = 600
 
 
         layout.addLayout(figure_layout)
@@ -168,29 +168,36 @@ class veget_indices(hyperspectral_appli):
         faces = np.array(faces, dtype=np.uint32)
         if hasattr(self, "mesh") and self.mesh is not None:
             self.mesh.parent = None  # Reset reference
-
-        Z_norm = (Z_flat - Z_flat.min()) / (Z_flat.max() - Z_flat.min())  # Normalize
-        Z_norm *= 100
-        # colors = np.column_stack((color_scale, np.zeros_like(color_scale), 1 - color_scale, np.ones_like(color_scale)))
+        # min_value = min(x for x in Z_flat if x is not None )
+        # print(min_value)
+        # Z_norm = (Z_flat - min_value) / (Z_flat.max() - min_value)  # Normalize
+        # Z_norm *= 100
         self.mesh = visuals.Mesh(vertices=np.column_stack((X_flat, Y_flat, Z_flat)), 
                                  faces=faces, shading='smooth')#edge_color=None,
         self.view.add(self.mesh)
-        self.plot_3D_axes(result)
+        # self.plot_3D_axes(Z_norm)
         self.view.camera.center = (result.shape[1]//2, -result.shape[0]//2, 0)
         self.canvas.draw()
 
 
     def plot_3D_axes(self, result):
+
+        if hasattr(self, "ax_list") and self.ax_list is not None:
+            for axis in self.ax_list:
+                axis.parent = None  # Reset reference
+
+
         # Create X, Y, Z axes
-        shape = result.shape
-        self.x_axis = scene.Axis(pos=[[-1, 0], [shape[1], 0]], tick_direction=(0, -1), axis_color="red", tick_color="red")
-        self.y_axis = scene.Axis(pos=[[0, 1], [0, -shape[0]]], tick_direction=(-1, 0), axis_color="green", tick_color="green")
-        self.z_axis = scene.Axis(pos=[[-5, 0], [5, 0]], tick_direction=(0, -1), axis_color="blue", tick_color="blue")
-        self.z_axis.transform = scene.transforms.MatrixTransform()  # its acutally an inverted xaxis
-        self.z_axis.transform.rotate(90, (0, 1, 0))  # rotate cw around yaxis
-        # self.z_axis.transform.rotate(-45, (0, 0, 1))  # tick direction towards (-1,-1)
-        # Apply transformations to correctly align them in 3D space
-        for axis in (self.x_axis, self.y_axis, self.z_axis):
+        shape = self.data_img.shape
+        x_axis = scene.Axis(pos=[[-1, 0], [shape[1], 0]], tick_direction=(100, -100), axis_color="red", tick_color="red")
+        y_axis = scene.Axis(pos=[[0, 1], [0, -shape[0]]], tick_direction=(-100, 100), axis_color="green", tick_color="green")
+        # z_axis = scene.Axis(pos=[[result.min(), 0], [result.max(), 0]], tick_direction=(0, -1), axis_color="blue", tick_color="blue")
+        z_axis = scene.Axis(pos=[[0, 0], [100, 0]], tick_direction=(0, -1), axis_color="blue", tick_color="blue")
+
+        z_axis.transform = scene.transforms.MatrixTransform()  # its acutally an inverted xaxis
+        z_axis.transform.rotate(-90, (0, 1, 0))  # rotate cw around yaxis
+        self.ax_list = (x_axis, y_axis, z_axis)
+        for axis in self.ax_list:
             # axis.transform = scene.STTransform(scale=(1, 1, 1))  # Scale appropriately
             self.view.add(axis)  # Add to scene
 

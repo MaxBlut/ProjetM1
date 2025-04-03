@@ -440,18 +440,7 @@ class PickableLegend(Legend):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+    
 
 
 
@@ -515,8 +504,21 @@ class CustomCanvas(FigureCanvas):
 
 
 
-class hyperspectral_appli(QWidget):
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+class hyperspectral_appli(QWidget):
     def display_image(self):
         if self.data_img is not None:
             custom_clear(self.axs[0])
