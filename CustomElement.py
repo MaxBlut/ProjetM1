@@ -464,6 +464,7 @@ class PickableLegend(Legend):
 
 
 class CustomCanvas(FigureCanvas):
+    # a custom canvas that include the custom pickable legend with a modified draw methode 
     def __init__(self, figure, parent_axs):
         super().__init__(figure)
         self.parent_axs = parent_axs

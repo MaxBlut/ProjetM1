@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication,QWidget, QVBoxLayout, QPushButton,QLabel, QSizePolicy, QHBoxLayout, QFileDialog
+from PySide6.QtCore import Signal
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 from utiles import mean_spectre_of_cluster, are_intersecting
@@ -16,12 +17,14 @@ sp.settings.envi_support_nonlowercase_params = True
 
 
 
-class MainWindow_draw_cluster(hyperspectral_appli):
-    def __init__(self):
+class MainWindow_draw_cluster(QWidget):
+    def __init__(self, resize_signal):
         super().__init__()
         self.setWindowTitle("Matplotlib in PyQt - Click Detection")
         self.variable_init()
         self.init_ui()
+        resize_signal.connect(self.on_resize)
+        
 
 
     def variable_init(self):
@@ -34,66 +37,57 @@ class MainWindow_draw_cluster(hyperspectral_appli):
         self.point_plots = []   # Store plotted points Object for easy removal
         self.line_plots = []    # Store plotted lines Object for easy removal
         self.croped_wavelength = None   # liste des longueurs d'ondes comprises entre les valeurs min et max du double slider
-        self.original_wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
+        self.wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
         self.WL_MIN = None        # la valeur de la plus petite longueur d'onde enregistré par la caméra (constante)
         self.wl_min_cursor = None       # l'inice de longueur d'onde min du slider
         self.wl_max_cursor = None       # l'inice de longueur d'onde max du slider
 
 
     def init_ui(self):
+        layout = QVBoxLayout()
 
-        
-        self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
-        self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
-
-        self.canvas = CustomCanvas(self.figure, self.axs)
-
-
-        self.axs[1].plot([])  # Initialize the second plot
-        self.button_confirm = QPushButton('Confirm')
-        self.button_confirm.clicked.connect(self.confirm_to_connect)
-        self.button_delete = QPushButton('delete')
-        self.button_delete.clicked.connect(lambda: self.delete("all"))
-        
+        # Label d'information
         self.label = QLabel("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
         self.label.setAlignment(Qt.AlignCenter)  # Center the text
         self.label.setSizePolicy(QSizePolicy.Preferred , QSizePolicy.Fixed)
+        layout.addWidget(self.label)
         
+       
 
-        # File Selection
-        file_layout = QHBoxLayout()
-        self.file_label = QLabel("Aucun fichier sélectionné")
-        file_button = QPushButton("Choisir un fichier")
-        file_button.clicked.connect(self.load_file)
-        file_layout.addWidget(file_button)
-        file_layout.addWidget(self.file_label)
-        
+        # matplotlib figure
+        self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
+        self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
+
+        # custom canvas for pickable legend on both axs
+        self.canvas = CustomCanvas(self.figure, self.axs)
+
         # toolbar
         self.toolbar = NavigationToolbar(self.canvas, self)
-
-     
-        
-        
-        layout = QVBoxLayout()
-        layout.addLayout(file_layout)
-        layout.addWidget(self.label)
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
+
+        self.canvas.draw()
+
+        # buttons
+        self.button_confirm = QPushButton('Confirm')
+        self.button_confirm.clicked.connect(self.confirm_to_connect)
         layout.addWidget(self.button_confirm)
+        self.button_delete = QPushButton('delete')
+        self.button_delete.clicked.connect(lambda: self.delete("all"))
         layout.addWidget(self.button_delete)
 
         self.setLayout(layout)
         
-        
-        
         # Connect mouse click event
         self.canvas.mpl_connect("button_press_event", self.on_click)
-        
         # Bind the "Enter" key to the confirm button
         self.button_confirm.setShortcut("Return")
         self.button_delete.setShortcut("Delete")
-
-        self.canvas.draw()
+        
+        
+    def on_resize(self):
+        print("rsize_event")
+        
 
 
 
@@ -170,7 +164,7 @@ class MainWindow_draw_cluster(hyperspectral_appli):
         # Plot the mean spectrum of the selected cluster 
         print("Plotting")
         
-        self.axs[1].plot(self.original_wavelengths,mean_spectre_of_cluster(self.map, self.data_img,True), label = f"poly n°{self.overlay_number}")
+        self.axs[1].plot(self.wavelengths,mean_spectre_of_cluster(self.map, self.data_img,True), label = f"poly n°{self.overlay_number}")
         self.delete("overlay")
         self.canvas.draw("legend")
         self.overlay_number+=1
@@ -210,11 +204,18 @@ class MainWindow_draw_cluster(hyperspectral_appli):
 
 
 if __name__ == "__main__":
+    resized = Signal(int,int)
     app = QApplication(sys.argv)
-    window = MainWindow_draw_cluster()
+    window = MainWindow_draw_cluster(resized)
     window.show()
     sys.exit(app.exec())
 
+    def resizeEvent(self, event):
+        """ Emits the signal when the window is resized """
+        # width, height = event.size().width(), event.size().height()
+        # self.resized.emit(width, height)  # Emit signal with new size
+        self.resized.emit()
+        super().resizeEvent(event)
 
 
 
