@@ -32,7 +32,8 @@ class MatplotlibImage(QWidget):
         self.text_edit.setStyleSheet("background-color: #3A3A3A; color: white; font-size: 14px; padding: 5px; border-radius : 5px")
         self.file_path = None
         self.setStyleSheet("background-color: #2E2E2E;")
-        
+        self.text = "Aucun commentaire effectué"
+
         # Création de la figure Matplotlib
         self.figure, self.Img_ax = plt.subplots(figsize=(10, 10), tight_layout=True)
         self.canvas = FigureCanvas(self.figure)
@@ -244,14 +245,15 @@ class MatplotlibImage(QWidget):
         self.slider.setRange(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
 
     def commenter(self):
-          self.text_matImage = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
+          self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
 class MatplotlibImage_DoubleCurseur(QWidget):
     def __init__(self, RGB_img, save_import):
         super().__init__()
         self.file_path = None
         self.file_data = None
         # self.setStyleSheet("background-color: #2E2E2E;")
-        
+        self.text = "Aucun commentaire effectué"
+
         # Création d'une figure avec 2 axes : 1 pour l'image et 1 pour le spectre
         self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2, figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
         self.canvas = FigureCanvas(self.figure)
@@ -380,7 +382,7 @@ class MatplotlibImage_DoubleCurseur(QWidget):
         self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
 
     def commenter(self):
-        self.text_matDouble = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
+        self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
 
 class MatplotlibImage_DoubleCurseur2(QWidget):
     def __init__(self, RGB_img, save_import):
@@ -556,7 +558,7 @@ class MatplotlibImage_3slid(QWidget):
     def __init__(self, RGB_img, save_import):
         super().__init__()
         self.file_path = None
-
+        self.text = "Aucun commentaire effectué"
         self.setStyleSheet("background-color: #2E2E2E;")
         
         self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2,figsize=(15, 10), gridspec_kw={'width_ratios': [3, 2]})
@@ -638,7 +640,7 @@ class MatplotlibImage_3slid(QWidget):
         save_import.signals.fichier_importe.connect(self.update_file)
 
         self.comment = QPushButton("Commenter")
-        self.comment.cliked.connect(self.commenter())
+        self.comment.clicked.connect(self.commenter)
 
 
         self.import_button.setStyleSheet("""
@@ -751,6 +753,8 @@ class MatplotlibImage_3slid(QWidget):
         self.spectrum_ax.set_title("Réflectance en fonction de la longueur d'onde")
         self.canvas.draw()
 
+        self.figure.tight_layout()
+        self.figure.tight_layout()
 
 
 
@@ -871,7 +875,7 @@ class MatplotlibImage_3slid(QWidget):
         self.update_spectrum(wavelengths, reflectance_values)
 
     def commenter(self):
-        self.text_mat3slid = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
+        self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")            
 class Save_import(QWidget):
 
     def __init__(self, matplotlib_widgets=None):
@@ -955,23 +959,16 @@ class Save_import(QWidget):
         page_width, page_height = A4
 
         commentaires = []
-        commentaires.append(self.)
-        for i, widget in enumerate(self.matplotlib_widgets):
-            text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire",
-                                                     f"Commentaire pour l'image {i+1} :", "")
-            if not ok:  
-                text = "Pas de commentaire."
-            commentaires.append(text)
+        for i in range(len(self.matplotlib_widgets)) :
+            commentaires.append(self.matplotlib_widgets[i].text)
 
         for i, widget in enumerate(self.matplotlib_widgets):
             if hasattr(widget, 'figure'):  # Vérifier si le widget a bien une figure Matplotlib
                 temp_img_path = f"temp_image_{i}.png"  # Nom unique pour chaque figure
                 widget.figure.canvas.draw()  # Forcer le dessin de la figure avant de la sauvegarder
-
                 widget.figure.savefig(temp_img_path, dpi=300, bbox_inches='tight')
 
                 img = Image.open(temp_img_path)
-                img.show()
                 img_width, img_height = img.size
                 scale = min(page_width / img_width, (page_height - 100) / img_height)
                 new_width = img_width * scale
