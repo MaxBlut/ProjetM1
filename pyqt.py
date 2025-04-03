@@ -8,7 +8,7 @@ from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
 import main as m
-from test3 import CustomWidgetRangeSlider
+from CustomElement import CustomWidgetRangeSlider
 
 import os
 import spectral as sp
