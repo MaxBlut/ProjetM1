@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QHBoxLayout,QWidget,QFileDialog,QMainWindow
+from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QHBoxLayout,QWidget,QFileDialog,QMainWindow, QInputDialog
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Signal
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -74,7 +74,7 @@ class CustomWidgetRangeSlider(QWidget):
         """Update labels and restrict slider movement to allowed values."""
         
         min_index, max_index = value  # Get slider positions
-        min_value, max_value = int(self.wavelenghts[min_index]), int(self.wavelenghts[max_index])  # Map indices to values
+        min_value, max_value = float(self.wavelenghts[min_index]), float(self.wavelenghts[max_index])  # Map indices to values
         self.wl_min_label.setText("{}".format(min_value))
         self.wl_max_label.setText("{}".format(max_value))
         """Reduit l'étude des clustering aux valeurs indiqués"""
@@ -91,21 +91,27 @@ class CustomWidgetRangeSlider(QWidget):
         self.setRange(self.wavelenghts) #update the range
         self.range_slider.setValue((0,len(wavelenghts)-1))
 
+class CommentButton(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent = parent	
+        self.comment_text = ""  # Stocker le commentaire
 
+        self.comment = QPushButton("Commenter pour sauvegarde")
+        self.comment.clicked.connect(self.commenter)
 
+        layout = QVBoxLayout()
+        layout.addWidget(self.comment)
+        self.setLayout(layout)
 
+    def commenter(self):
+        text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire pour la sauvegarde globale", "Entrez votre commentaire :")
+        if ok and text:
+            self.parent.text = text  # Stocker le texte dans l'attribut
+            print(f"Commentaire ajouté : {text}")  # Debug
 
-
-
-
-
-
-
-
-
-
-
-
+    def get_comment(self):
+        return self.comment_text  # Getter pour récupérer le commentaire
 
 
 

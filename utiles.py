@@ -142,7 +142,7 @@ def calcule_true_rgb_opti(k, reflectance_image, wavelength):
     reflectance = np.array(reflectance, dtype=np.float32)
 
     # Calcul des valeurs RGB pour chaque pixel
-    r, g, b = nmToRGB(wavelength[k])  # Conversion de la longueur d'onde en RGB
+    r, g, b = nmToRGB(float(wavelength[k]))  # Conversion de la longueur d'onde en RGB
     true_rgb_img = np.zeros((reflectance.shape[0], reflectance.shape[1], 3), dtype=np.uint8)
 
     # Calcul des composantes RGB

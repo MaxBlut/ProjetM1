@@ -31,7 +31,6 @@ class Trois_Slider(QWidget):
         self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2,figsize=(15, 10), gridspec_kw={'width_ratios': [3, 2]})
         self.canvas = FigureCanvas(self.figure)
         self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        self.Img_ax.set_position([0, 0, 1, 1])
         self.figure.patch.set_facecolor('#2E2E2E')
 
         self.Img_ax.set_position([0, 0, 0.6, 1])  # Image sur 60% de la largeur
@@ -100,27 +99,27 @@ class Trois_Slider(QWidget):
         self.slid_b.setStyleSheet(StyleSheet)
 
         #---------------- Bouton "Importer fichier" 
-        self.import_button = QPushButton("Analyser")
-        self.import_button.clicked.connect(self.import_file)
-        self.fichier_selec = QLabel("Aucun fichier sélectionné")
-        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
+        # self.import_button = QPushButton("Analyser")
+        # self.import_button.clicked.connect(self.import_file)
+        # self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        # self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
 
         self.comment = QPushButton("Commenter")
         self.comment.clicked.connect(self.commenter)
 
-        self.import_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3A3A3A;
-                color: white;
-                font-size: 14px;
-                border: 1px solid #555;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #4A4A4A;
-            }
-        """)
+        # self.import_button.setStyleSheet("""
+        #     QPushButton {
+        #         background-color: #3A3A3A;
+        #         color: white;
+        #         font-size: 14px;
+        #         border: 1px solid #555;
+        #         border-radius: 5px;
+        #         padding: 5px;
+        #     }
+        #     QPushButton:hover {
+        #         background-color: #4A4A4A;
+        #     }
+        # """)
 
         # Création des labels
         self.r_label = QLabel("R")
@@ -188,8 +187,8 @@ class Trois_Slider(QWidget):
         #LAYOUTS---------------------------------
         # ------------
         import_layout = QHBoxLayout()
-        import_layout.addWidget(self.import_button)
-        import_layout.addWidget(self.fichier_selec)
+        # import_layout.addWidget(self.import_button)
+        # import_layout.addWidget(self.fichier_selec)
         import_layout.addWidget(self.comment)
         import_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
 
@@ -216,7 +215,6 @@ class Trois_Slider(QWidget):
         self.canvas.draw()
 
         self.figure.tight_layout()
-        self.figure.tight_layout()
 
         self.setLayout(img_layout)
         self.Img_ax.imshow(RGB_img)
@@ -225,7 +223,7 @@ class Trois_Slider(QWidget):
 
     def update_file(self, path):
         self.file_path = path
-        self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
+        # self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
 
     def update_slid_text(self):
         # Récupérer les valeurs des sliders
@@ -246,7 +244,7 @@ class Trois_Slider(QWidget):
 
     def update_image(self):
 
-
+        self.figure.tight_layout()
         wl_r = self.slid_r.value()
         wl_g = self.slid_g.value()
         wl_b = self.slid_b.value()
@@ -281,12 +279,13 @@ class Trois_Slider(QWidget):
         self.slid_b.setRange(0, len(self.wavelength)-1)
 
         self.spectrum_ax.set_xlim(float(self.wavelength[0]), float(self.wavelength[-1]))
-        
+        self.figure.tight_layout()
+
         self.value_r.setText(" Choisissez une longueur d'onde")
         self.value_g.setText(" ")
         self.value_b.setText(" ")
 
-        self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
+        # self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
     
     def update_spectrum(self,  wavelengths, reflectance_values):
         self.spectrum_ax.clear()
@@ -317,11 +316,6 @@ class Trois_Slider(QWidget):
 
         x, y = int(event.xdata), int(event.ydata)
         print(f"Pixel cliqué : ({x}, {y})")
-
-        # Vérification que les longueurs d'onde existent
-        if "wavelength" not in self.metadata:
-            print("Métadonnées de longueurs d'onde introuvables.")
-            return
 
         # Récupération des longueurs d'onde choisies
         wavelengths = [self.wavelength[self.slid_r.value()],self.wavelength[self.slid_g.value()], self.wavelength[self.slid_b.value()]]

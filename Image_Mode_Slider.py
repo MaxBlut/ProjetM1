@@ -7,7 +7,7 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
-from utiles import nmToRGB, calcule_true_rgb_opti, calcule_rgb_3slid, calcule_rgb_plage, calcule_true_gray_opti
+from utiles import nmToRGB, calcule_true_rgb_opti, calcule_rgb_plage, calcule_true_gray_opti
 
 import os
 import spectral as sp
@@ -97,34 +97,34 @@ class Image_Mode_Slider(QWidget):
         self.choix_label.setFont(font)
 
         # Bouton "Importer fichier" (remplace l'ancien combo)
-        self.import_button = QPushButton("Analyser")
-        self.import_button.clicked.connect(self.import_file)
+        # self.import_button = QPushButton("Analyser")
+        # self.import_button.clicked.connect(self.import_file)
 
         self.comment = QPushButton("Commenter")
         self.comment.clicked.connect(self.commenter)
 
         
-        self.fichier_selec = QLabel("Aucun fichier sélectionné")
-        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
-        self.import_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3A3A3A;
-                color: white;
-                font-size: 14px;
-                border: 1px solid #555;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #4A4A4A;
-            }
-        """)
+        # self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        # self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
+        # self.import_button.setStyleSheet("""
+        #     QPushButton {
+        #         background-color: #3A3A3A;
+        #         color: white;
+        #         font-size: 14px;
+        #         border: 1px solid #555;
+        #         border-radius: 5px;
+        #         padding: 5px;
+        #     }
+        #     QPushButton:hover {
+        #         background-color: #4A4A4A;
+        #     }
+        # """)
 
         # Layout principal (image + sliders + import button)
 
         import_layout = QHBoxLayout()
-        import_layout.addWidget(self.import_button)
-        import_layout.addWidget(self.fichier_selec)
+        # import_layout.addWidget(self.import_button)
+        # import_layout.addWidget(self.fichier_selec)
         import_layout.addWidget(self.comment)
         import_layout.setAlignment(self.comment, Qt.AlignRight)
 
@@ -213,7 +213,7 @@ class Image_Mode_Slider(QWidget):
         self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre au-dessus de l'image
 
         if selected_mode == "RGB":
-            img_data = calcule_true_rgb_opti(idx_wavelength, self.open_file)
+            img_data = calcule_true_rgb_opti(idx_wavelength, self.open_file, self.wavelength)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array)  # Affichage en couleur
@@ -221,7 +221,7 @@ class Image_Mode_Slider(QWidget):
             self.canvas.draw()
 
         elif selected_mode == "Gris":
-            img_data = calcule_true_gray_opti(idx_wavelength, self.open_file, self.wavelength)
+            img_data = calcule_true_gray_opti(idx_wavelength, self.open_file)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array, cmap='gray')  # Affichage en niveaux de gris
@@ -244,7 +244,7 @@ class Image_Mode_Slider(QWidget):
         # self.img_data = self.file_path.load()  # Charger en tant que tableau NumPy
         # self.metadata = self.file_path.metadata  # Récupérer les métadonnées
         self.left_label = QLabel(f"{self.wavelength[0]} nm")
-        self.right_label = QLabel(f"{self.wevelength[-1]} nm")
+        self.right_label = QLabel(f"{self.wavelength[-1]} nm")
         # self.slider.setRange(float(self.wavelength[0]), float(self.wavelength[-1]))
         self.slider.setRange(0, len(self.wavelength)-1)
 

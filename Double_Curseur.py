@@ -7,7 +7,7 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
-from CustomElement import CustomWidgetRangeSlider
+from CustomElement import CustomWidgetRangeSlider, CommentButton
 from utiles import calcule_rgb_plage, mean_spectre_of_cluster
 import os
 import spectral as sp
@@ -44,6 +44,14 @@ class Double_Curseur(QWidget):
             if action.text() in ["Home", "Customize"]:
                 toolbar.removeAction(action)
 
+
+
+        self.button_com = CommentButton(self)
+        # self.text = self.button_com.get_comment()
+        print(self.text)
+
+
+
         # Slider de contrôle pour les longueurs d'onde
         self.slider_widget = CustomWidgetRangeSlider()
         self.slider_widget.range_slider.sliderReleased.connect(self.update_image)
@@ -51,23 +59,21 @@ class Double_Curseur(QWidget):
         self.slider_widget.range_slider.valueChanged.connect(self.slider_widget.update_label)
 
         # Bouton pour importer le fichier
-        self.import_button = QPushButton("Analyser")
-        self.import_button.clicked.connect(self.import_file)
-        self.fichier_selec = QLabel("Aucun fichier sélectionné")
+        # self.import_button = QPushButton("Analyser")
+        # self.import_button.clicked.connect(self.import_file)
+        # self.fichier_selec = QLabel("Aucun fichier sélectionné")
         # save_import.signals.fichier_importe.connect(self.update_file)
 
-        self.comment = QPushButton("Commenter")
-        self.comment.clicked.connect(self.commenter)
-
-
+      
         # Layout pour les sliders et le bouton d'importation
         import_layout = QHBoxLayout()
-        import_layout.addWidget(self.import_button)
-        import_layout.addWidget(self.fichier_selec)
-        import_layout.addWidget(self.comment)
-        import_layout.setAlignment(self.comment, Qt.AlignRight)
+        # import_layout.addWidget(self.import_button)
+        # import_layout.addWidget(self.fichier_selec)
+        # import_layout.addWidget(self.comment)
+        # import_layout.setAlignment(self.comment, Qt.AlignRight)
         
         img_layout = QVBoxLayout()
+        img_layout.addWidget(self.button_com)
         img_layout.addLayout(import_layout)
         img_layout.addWidget(toolbar)
         img_layout.addWidget(self.canvas)
@@ -139,7 +145,7 @@ class Double_Curseur(QWidget):
         self.imgopt = self.Img_ax.imshow(self.img_data[:,:,(0,1,2)])
         self.Img_ax.axis('off')
 
-        img_data_calculated = calcule_rgb_plage(self.img_data, self.wavelength, 0, len(self.wavelength-1))
+        img_data_calculated = calcule_rgb_plage(self.img_data, self.wavelength, 0, len(self.wavelength)-1)
         img_array = np.array(img_data_calculated, dtype=np.uint8)
         self.Img_ax.clear()
         self.Img_ax.imshow(img_array)
@@ -155,8 +161,14 @@ class Double_Curseur(QWidget):
         self.spectrum_y = np.mean(self.img_data, axis=(0, 1))  # Moyenne des pixels par bande
         self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
 
-        self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
+        # self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
 
-    def commenter(self):
-        self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
+    
 
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    initial_image = np.zeros((100, 100, 3), dtype=np.uint8)  # Image en couleur par défaut
+    window = Double_Curseur(initial_image)
+    window.show()
+    sys.exit(app.exec())

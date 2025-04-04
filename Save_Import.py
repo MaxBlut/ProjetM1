@@ -100,6 +100,7 @@ class Save_import(QWidget):
 
         commentaires = []
         for i in range(len(self.matplotlib_widgets)) :
+            print(f"Texte du widget {i} : {self.matplotlib_widgets[i].text}")
             commentaires.append(self.matplotlib_widgets[i].text)
 
         for i, widget in enumerate(self.matplotlib_widgets):
@@ -141,11 +142,11 @@ class Save_import(QWidget):
         QApplication.processEvents() 
 
         self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
-        self.signals.fichier_importe.emit(self.file_path_noload)  # Émet le signal avec le chemin du fichier
+        # self.signals.fichier_importe.emit(self.file_path_noload)  # Émet le signal avec le chemin du fichier
         print("Signal émis")
 
         self.img = sp.open_image(os.path.basename(self.file_path_noload))
-        self.data_img = self.file_path.load()  # Charger en tant que tableau NumPy
+        self.data_img = self.img.load()  # Charger en tant que tableau NumPy
         if 'wavelength' in self.img.metadata:
             self.wavelength = self.img.metadata['wavelength']
         elif "Wavelength" in self.img.metadata:
