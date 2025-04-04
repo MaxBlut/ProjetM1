@@ -7,8 +7,7 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
-import main as m
-from CustomElement import CustomWidgetRangeSlider
+from utiles import nmToRGB, calcule_true_rgb_opti, calcule_rgb_3slid, calcule_rgb_plage, calcule_true_gray_opti
 
 import os
 import spectral as sp
@@ -205,16 +204,16 @@ class Image_Mode_Slider(QWidget):
 
 
     def update_image(self):
-        wavelength = self.slider.value()
+        idx_wavelength = self.slider.value()
         # Switch-like behavior pour appliquer le bon cmap
         selected_mode = self.mode_combo.currentText()
 
         # Créer le titre dynamique
-        title = f"Image reconstituée en mode {selected_mode} à la longueur d'onde {wavelength} nm"
+        title = f"Image reconstituée en mode {selected_mode} à la longueur d'onde {self.wavelength[idx_wavelength]} nm"
         self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre au-dessus de l'image
 
         if selected_mode == "RGB":
-            img_data = m.calcule_true_rgb_opti(wavelength, self.file_path)
+            img_data = calcule_true_rgb_opti(idx_wavelength, self.file_path)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array)  # Affichage en couleur
@@ -222,7 +221,7 @@ class Image_Mode_Slider(QWidget):
             self.canvas.draw()
 
         elif selected_mode == "Gris":
-            img_data = m.calcule_true_gray_opti(wavelength, self.file_path)
+            img_data = calcule_true_gray_opti(idx_wavelength, self.file_path)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array, cmap='gray')  # Affichage en niveaux de gris
@@ -230,7 +229,7 @@ class Image_Mode_Slider(QWidget):
             self.canvas.draw()
 
         elif selected_mode == "Couleur":
-            img_data = m.calcule_true_gray_opti(wavelength, self.file_path)
+            img_data = calcule_true_gray_opti(idx_wavelength, self.file_path)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array)  # Affichage en niveaux de gris            self.Img_ax.axis('off')
@@ -243,7 +242,8 @@ class Image_Mode_Slider(QWidget):
         self.metadata = self.file_path.metadata  # Récupérer les métadonnées
         self.left_label = QLabel(f"{self.wavelength[0]} nm")
         self.right_label = QLabel(f"{self.wevelength[-1]} nm")
-        self.slider.setRange(float(self.wavelength[0]), float(self.wavelength[-1]))
+        # self.slider.setRange(float(self.wavelength[0]), float(self.wavelength[-1]))
+        self.slider.setRange(0, len(self.wavelength)-1)
 
     def commenter(self):
           self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
