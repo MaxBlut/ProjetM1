@@ -7,8 +7,7 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
-import main as m
-from CustomElement import CustomWidgetRangeSlider
+from utiles import nmToRGB, calcule_true_rgb_opti, calcule_rgb_3slid, calcule_rgb_plage, calcule_true_gray_opti
 
 import os
 import spectral as sp
@@ -25,9 +24,11 @@ plt.ioff()
 
 
 class Image_Mode_Slider(QWidget):
-    def __init__(self, RGB_img, save_import):
+    def __init__(self, RGB_img):
         super().__init__()
         self.wavelength = None
+        self.img_data = None    
+        self.file_path = None
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText("Écrivez ici une description ou un commentaire...")
         self.text_edit.setStyleSheet("background-color: #3A3A3A; color: white; font-size: 14px; padding: 5px; border-radius : 5px")
@@ -105,7 +106,6 @@ class Image_Mode_Slider(QWidget):
         
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
         self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
-        save_import.signals.fichier_importe.connect(self.update_file)
         self.import_button.setStyleSheet("""
             QPushButton {
                 background-color: #3A3A3A;
@@ -195,26 +195,25 @@ class Image_Mode_Slider(QWidget):
 
     def update_file(self, path):
         self.file_path = path
-        print("je suis la")
         self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
 
 
     def update_slider_text(self):
         wavelenght = self.slider.value()
-        self.label.setText(f"Longueur d'onde : {wavelenght} nm")
+        self.label.setText(f"Longueur d'onde : {self.wavelength[wavelenght]} nm")
 
 
     def update_image(self):
-        wavelength = self.slider.value()
+        idx_wavelength = self.slider.value()
         # Switch-like behavior pour appliquer le bon cmap
         selected_mode = self.mode_combo.currentText()
 
         # Créer le titre dynamique
-        title = f"Image reconstituée en mode {selected_mode} à la longueur d'onde {wavelength} nm"
+        title = f"Image reconstituée en mode {selected_mode} à la longueur d'onde {self.wavelength[idx_wavelength]} nm"
         self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre au-dessus de l'image
 
         if selected_mode == "RGB":
-            img_data = m.calcule_true_rgb_opti(wavelength, self.file_path)
+            img_data = calcule_true_rgb_opti(idx_wavelength, self.open_file)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array)  # Affichage en couleur
@@ -222,7 +221,7 @@ class Image_Mode_Slider(QWidget):
             self.canvas.draw()
 
         elif selected_mode == "Gris":
-            img_data = m.calcule_true_gray_opti(wavelength, self.file_path)
+            img_data = calcule_true_gray_opti(idx_wavelength, self.open_file, self.wavelength)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array, cmap='gray')  # Affichage en niveaux de gris
@@ -230,23 +229,25 @@ class Image_Mode_Slider(QWidget):
             self.canvas.draw()
 
         elif selected_mode == "Couleur":
-            img_data = m.calcule_true_gray_opti(wavelength, self.file_path)
+            img_data = calcule_true_gray_opti(idx_wavelength, self.open_file)
             
             img_array = np.array(img_data, dtype=np.uint8)
             self.Img_ax.imshow(img_array)  # Affichage en niveaux de gris            self.Img_ax.axis('off')
             self.canvas.draw()
 
-    def import_file(self):
-
-        self.file_path = sp.open_image(os.path.basename(self.file_path))
-        self.img_data = self.file_path.load()  # Charger en tant que tableau NumPy
-        self.metadata = self.file_path.metadata  # Récupérer les métadonnées
+    def load_file(self, file_path, wavelength, data_img):
+        self.wavelength = wavelength
+        self.file_path = file_path
+        self.img_data = data_img
+        self.open_file = sp.open_image(self.file_path)
+        # self.file_path = sp.open_image(os.path.basename(self.file_path))
+        # self.img_data = self.file_path.load()  # Charger en tant que tableau NumPy
+        # self.metadata = self.file_path.metadata  # Récupérer les métadonnées
         self.left_label = QLabel(f"{self.wavelength[0]} nm")
         self.right_label = QLabel(f"{self.wevelength[-1]} nm")
-        self.slider.setRange(float(self.wavelength[0]), float(self.wavelength[-1]))
+        # self.slider.setRange(float(self.wavelength[0]), float(self.wavelength[-1]))
+        self.slider.setRange(0, len(self.wavelength)-1)
 
     def commenter(self):
           self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
 
-class SignalEmitter(QObject):
-    fichier_importe = Signal(str)  # Signal émis lors de l'importation d'un fichier

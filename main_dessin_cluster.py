@@ -42,6 +42,9 @@ class MainWindow_draw_cluster(QWidget):
 
 
     def init_ui(self):
+
+        import_com_layout = QHBoxLayout()
+        self.import_button = QPushButton("Importer un fichier")
         layout = QVBoxLayout()
 
         # Label d'information
