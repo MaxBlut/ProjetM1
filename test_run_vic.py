@@ -12,6 +12,9 @@ from Save_Import import Save_import
 from Double_Curseur import Double_Curseur
 from Trois_Slider import Trois_Slider
 from Image_Mode_Slider import Image_Mode_Slider
+from main_dessin_cluster import MainWindow_draw_cluster
+from vegetation_indices_GPU import veget_indices_GPU
+from main_double_kmean_sklearn import KMeansApp
 import os
 import spectral as sp
 import time
@@ -32,6 +35,9 @@ class MainWindow(QMainWindow):
         self.matplotlib_widget_rgb = Image_Mode_Slider(initial_image)
         self.matplotlib_widget_double = Double_Curseur(initial_image)
         self.matplotlib_widget_3slid = Trois_Slider(initial_image)
+        self.widget_drawcluster = MainWindow_draw_cluster()
+        self.widget_veget_i = veget_indices_GPU()
+        self.widget_KMeansApp = KMeansApp()
 
         self.save_import.matplotlib_widgets = [
             self.matplotlib_widget_rgb, 
@@ -46,11 +52,17 @@ class MainWindow(QMainWindow):
         self.tab2 = QWidget()
         self.tab3 = QWidget()
         self.tab4 = QWidget()
+        self.tab5 = QWidget()
+        self.tab6 = QWidget()
+        self.tab7 = QWidget()
 
         self.tabs.addTab(self.tab1, "Accueil")
         self.tabs.addTab(self.tab2, "Unique WL")
         self.tabs.addTab(self.tab3, "Plage WL")
         self.tabs.addTab(self.tab4, "RGB-3sliders")
+        self.tabs.addTab(self.tab5, "RGB-3sliders")
+        self.tabs.addTab(self.tab6, "RGB-3sliders")
+        self.tabs.addTab(self.tab7, "RGB-3sliders")
 
         self.tabs.setStyleSheet("""
             QTabBar::tab {
@@ -85,6 +97,19 @@ class MainWindow(QMainWindow):
         layout4.addWidget(self.matplotlib_widget_3slid)
         self.tab4.setLayout(layout4)
 
+        layout5 = QVBoxLayout() 
+        layout5.addWidget(self.widget_drawcluster)
+        self.tab5.setLayout(layout5)
+
+        layout6 = QVBoxLayout() 
+        layout6.addWidget(self.widget_veget_i)
+        self.tab6.setLayout(layout6)
+
+        layout7 = QVBoxLayout() 
+        layout7.addWidget(self.widget_KMeansApp)
+        self.tab7.setLayout(layout7)
+
+
         self.setCentralWidget(self.tabs)
         # Global stylesheet
         self.setStyleSheet("""
@@ -97,11 +122,13 @@ class MainWindow(QMainWindow):
         }
         """)
 
+
     def loading_file(self):
         """ Load the file and update the widgets """
         self.matplotlib_widget_double.load_file(self.save_import.file_path_noload, self.save_import.wavelength, self.save_import.data_img)
         self.matplotlib_widget_rgb.load_file(self.save_import.file_path_noload, self.save_import.wavelength, self.save_import.data_img)
         self.matplotlib_widget_3slid.load_file(self.save_import.file_path_noload, self.save_import.wavelength, self.save_import.data_img)
+
 
 if __name__ == "__main__":
     app = QApplication.instance()

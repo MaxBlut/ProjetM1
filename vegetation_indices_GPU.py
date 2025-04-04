@@ -19,7 +19,7 @@ from vispy import scene
 from vispy.scene import visuals, transforms
 
 
-class veget_indices(QWidget):
+class veget_indices_GPU(QWidget):
     def __init__(self):
         super().__init__()
         # self.setWindowTitle("Dropdown Plotter")
@@ -265,7 +265,7 @@ class MyWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         # Create an instance of CustomWidget and pass the resize signal
-        self.widget = veget_indices()
+        self.widget = veget_indices_GPU()
         self.file_path ="D:/MAXIME/cours/4eme_annee/Projet_M1/wetransfer_data_m1_nantes_2025-03-25_1524/Data_M1_Nantes/VNIR(400-1000nm)/E2_Adm_On_J0_Pl1_F1_2.bil.hdr"
         img = sp.open_image(self.file_path)
         self.data_img = img.load()
