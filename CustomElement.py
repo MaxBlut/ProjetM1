@@ -35,12 +35,13 @@ from time import time
 
 class CustomQRangeSlider(QRangeSlider):
     """Custom QRangeSlider that emits a signal when the slider is released."""
-    
     sliderReleased = Signal(tuple)  # Define a custom signal that sends the slider values
 
+    
     def __init__(self, orientation=Qt.Orientation.Horizontal, parent=None):
         """Initialize with the specified orientation (default: Horizontal)."""
         super().__init__(orientation, parent)  # Pass orientation to the parent class
+
 
     def mouseReleaseEvent(self, event):
         """Detects when the user releases the slider and emits the custom signal."""
@@ -131,20 +132,21 @@ class CustomToolbar(NavigationToolbar):
         # Create mean_spctr_point_button Buttons
         self.mean_spctr_point_button = QToolButton(self)
         self.mean_spctr_point_button.setCheckable(True)
-        self.mean_spctr_point_button.setIcon(QIcon("i-remade-that-hamster-meme-into-my-rat-v0-cercyjvmn3kb1.jpg")) 
-        self.mean_spctr_point_button.setToolTip("plot_mean_spctr_point")
+        self.mean_spctr_point_button.setIcon(QIcon("photo/point.png")) 
+        self.mean_spctr_point_button.setToolTip("plot the mean spectrum of the clicked point")
         self.mean_spctr_point_button.clicked.connect(self.toggle_mean_spctr_point)
 
         # Create pen_button Buttons
         self.pen_button = QToolButton(self)
         self.pen_button.setCheckable(True)
-        self.pen_button.setIcon(QIcon("pen.png"))
-        self.pen_button.setToolTip("draw on the left graph")
+        self.pen_button.setIcon(QIcon("photo/pen.jpg"))
+        self.pen_button.setToolTip("select pixels with the pen using left mouse button and remove them with the right mouse button.\n " \
+                                    "Click the middle mouse button or enter to plot the mean spectrum of the selected pixels.")
         self.pen_button.clicked.connect(self.toggle_pen)
 
         #create merge buttons
         self.merge_clusters_button = QToolButton(self)
-        self.merge_clusters_button.setIcon(QIcon("merge.png")) 
+        self.merge_clusters_button.setIcon(QIcon("photo/merge.jpg")) 
         self.merge_clusters_button.setToolTip("Merge Clusters")
         self.merge_clusters_button.clicked.connect(self.open_merge_window)
 
@@ -297,22 +299,26 @@ class CustomToolbar(NavigationToolbar):
                     if event.button == 1: # clic gauche
                         self.left_mouse_pressed = True
                     elif event.button == 2: # clic milieu
-                        # compute and plot the mean spetra of the drawn pixels
-                        avg_spectrum = mean_spectre_of_cluster(self.selected_pixels_map, self.parent.data_img, selected_cluster_value=True)
-                        if avg_spectrum[0] >= 0: # on fait ce if pour qu'il ne ce passe rien dans le cas ou l'utilisateur valide le plot sans avoir selectionné de pixels
-                            cmap = plt.get_cmap("nipy_spectral")
-                            norm = plt.Normalize(0, 2*self.number_of_overlay_ploted+1)
-                            color = cmap(norm(self.number_of_overlay_ploted+1))
-                            self.number_of_overlay_ploted +=1
-                            self.parent.axs[1].plot(self.parent.croped_wavelength, avg_spectrum,color=color, label=f"groupe n°{self.number_of_overlay_ploted}")                           
-                            # remove overlay and empty the selected pixels map
-                            # self.overlay.remove()
-                            self.overlay = None
-                            self.selected_pixels_map[:,:] = False
-                            self.parent.canvas.draw("legend")
+                        self.plot_overlay()
                     elif event.button == 3: # clic droit
                         self.right_mouse_pressed = True
         
+
+    def plot_overlay(self):
+        # compute and plot the mean spetra of the drawn pixels
+        avg_spectrum = mean_spectre_of_cluster(self.selected_pixels_map, self.parent.data_img, selected_cluster_value=True)
+        if avg_spectrum[0] >= 0: # on fait ce if pour qu'il ne ce passe rien dans le cas ou l'utilisateur valide le plot sans avoir selectionné de pixels
+            cmap = plt.get_cmap("nipy_spectral")
+            norm = plt.Normalize(0, self.number_of_overlay_ploted+1)
+            color = cmap(norm(self.number_of_overlay_ploted))
+            self.number_of_overlay_ploted +=1
+            self.parent.axs[1].plot(self.parent.croped_wavelength, avg_spectrum,color=color, label=f"groupe n°{self.number_of_overlay_ploted}")                           
+            # remove overlay and empty the selected pixels map
+            # self.overlay.remove()
+            self.overlay = None
+            self.selected_pixels_map[:,:] = False
+            self.parent.canvas.draw("legend")
+
 
     def on_mouse_move(self, event):
         # Triggered when the mouse moves while pressed.
@@ -337,8 +343,8 @@ class CustomToolbar(NavigationToolbar):
                     self.overlay.remove()
                     self.overlay = None
                 cmap = plt.get_cmap("nipy_spectral")
-                norm = plt.Normalize(0, 2*self.number_of_overlay_ploted+1)
-                color = cmap(norm(self.number_of_overlay_ploted+1))
+                norm = plt.Normalize(0, self.number_of_overlay_ploted+1)
+                color = cmap(norm(self.number_of_overlay_ploted))
                 masked_overlay = np.ma.masked_where(~self.selected_pixels_map, self.selected_pixels_map)
                 self.overlay = self.parent.axs[0].imshow(masked_overlay, colorizer=color, alpha = 0.9,label=f"groupe n°{self.number_of_overlay_ploted+1}")
                 self.overlay.set_cmap(plt.cm.colors.ListedColormap([color]))

@@ -83,8 +83,12 @@ def closest_id(wl, wl_list, accuracy=5):
     id = None
     diff = accuracy
     for i in range(len(wl_list)):
-        if abs(wl - wl_list[i]) < diff:
-            id = i
+        if wl_list[i] <= wl + accuracy:
+            if abs(wl - wl_list[i]) < diff:
+                diff = abs(wl - wl_list[i])
+                id = i
+        else:
+            break
     return id
 
 def nmToRGB(wavelength):

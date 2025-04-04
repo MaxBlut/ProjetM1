@@ -1,0 +1,7 @@
+Cellulose Absorption Ratio  : R675 * R692 / 2 
+Carter[695,420] : R695 / R760
+Curvature Index : R675 * R692 / (R683 **2)
+CaCo1[515,550] : 1/R515 - 1/R550
+CaCo2[515,700] : 1/R515 - 1/R700
+Double-peak Canopy Nitrogene : (R720-R700)/((R700-R670)*(R720-R670+0.03))
+Modified Soil Ajusted Vegetation Index : sqrt((2*R800 +1)**2 - 8*(R800-R670))

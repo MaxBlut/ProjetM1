@@ -1,31 +1,33 @@
 import sys
 import random
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QComboBox, QFileDialog,QHBoxLayout
+import spectral as sp
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QComboBox, QFileDialog,QHBoxLayout,QMainWindow
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 import numpy as np
+from numpy import sqrt
+
 import re
 
-from utiles import closest_id
+from utiles import closest_id, custom_clear
 
-from CustomElement import CustomCanvas,hyperspectral_appli
-
+from PySide6.QtCore import Signal, Qt
 
 from vispy import scene
 from vispy.scene import visuals, transforms
 
 
-class veget_indices(hyperspectral_appli):
+class veget_indices(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Dropdown Plotter")
+        # self.setWindowTitle("Dropdown Plotter")
         self.variable_init()
         self.init_ui()
 
     def variable_init(self):
-        self.original_wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
+        self.wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
         self.wl_min_cursor = None       # l'indice de longueur d'onde min du slider
         self.wl_max_cursor = None       # l'indice de longueur d'onde max du slider
         self.data_img = None
@@ -43,18 +45,11 @@ class veget_indices(hyperspectral_appli):
         self.dropdown = QComboBox()
         layout.addWidget(self.dropdown)
 
-        # Button to load file
-        self.load_button = QPushButton("Load File")
-        self.load_button.clicked.connect(self.load_file)
-        layout.addWidget(self.load_button)
-
         # Plot button
         self.plot_button = QPushButton("Plot")
         self.plot_button.clicked.connect(self.process_equation)
         layout.addWidget(self.plot_button)
-        
-
-
+     
         # Matplotlib Figure and Canvas
         self.axs=[None]
         self.figure, self.axs[0] = plt.subplots(1, 1, figsize=(5, 5))
@@ -65,22 +60,20 @@ class veget_indices(hyperspectral_appli):
         # Create a VisPy canvas (GPU-rendered)
         self.SceneCanvas = scene.SceneCanvas(keys='interactive', bgcolor='white')
         figure_layout.addWidget(self.SceneCanvas.native)
+        layout.addLayout(figure_layout)
 
         # Create a 3D view
         self.view = self.SceneCanvas.central_widget.add_view()
         self.view.camera = 'turntable'  # Interactive 3D rotation
         self.view.camera.scale_factor = 600
 
-
-        layout.addLayout(figure_layout)
-
         # toolbar
         self.toolbar = NavigationToolbar(self.canvas, self)
         layout.addWidget(self.toolbar)
 
-        self.setLayout(layout)
         self.populate_drop_down()
-
+        
+        self.setLayout(layout)
         # Connect mouse movement event
         self.SceneCanvas.events.mouse_press.connect(self.on_mouse_click)
 
@@ -130,16 +123,17 @@ class veget_indices(hyperspectral_appli):
         self.axs[0].clear() 
         for wl in found_wavelengths:
             wl = int(wl)
-            band_index = closest_id(wl,self.original_wavelengths,accuracy=2)
+            band_index = closest_id(wl,self.wavelengths,accuracy=2)
             if band_index is None:
                 print("wl value not found")
                 return -1
             data = self.data_img[:,:,band_index]
             local_dict[f'R{int(wl)}'] = np.squeeze(data)
         # Evaluate the equation safely
-        
+        local_dict['sqrt'] = sqrt
+        local_dict['abs'] = abs
         try:
-            result = eval(equation, {"__builtins__": {}}, local_dict)
+            result = eval(equation, {"__builtins__": {}} , local_dict) 
         except Exception as e:
             raise ValueError(f"Error evaluating equation: {e}")
         self.axs[0].imshow(result,cmap='nipy_spectral')
@@ -164,23 +158,25 @@ class veget_indices(hyperspectral_appli):
                 idx4 = (i + 1) * cols + (j + 1)
                 faces.append([idx1, idx2, idx3])  # First triangle
                 faces.append([idx2, idx4, idx3])  # Second triangle
-
         faces = np.array(faces, dtype=np.uint32)
+
         if hasattr(self, "mesh") and self.mesh is not None:
             self.mesh.parent = None  # Reset reference
-        # min_value = min(x for x in Z_flat if x is not None )
-        # print(min_value)
-        # Z_norm = (Z_flat - min_value) / (Z_flat.max() - min_value)  # Normalize
-        # Z_norm *= 100
-        self.mesh = visuals.Mesh(vertices=np.column_stack((X_flat, Y_flat, Z_flat)), 
-                                 faces=faces, shading='smooth')#edge_color=None,
+        
+        Z_flat = np.nan_to_num(Z_flat, nan=0.0, posinf=0.0, neginf=0.0)  # Replace NaN with None
+        min_value = min(x for x in Z_flat if x is not None )
+
+        Z_norm = (Z_flat - min_value) / (Z_flat.max() - min_value)  # Normalize
+        Z_norm *= 100
+        
+        self.mesh = visuals.Mesh(vertices=np.column_stack((X_flat, Y_flat, Z_norm)),faces=faces , shading='smooth') 
         self.view.add(self.mesh)
-        # self.plot_3D_axes(Z_norm)
+        self.plot_3D_axes()
         self.view.camera.center = (result.shape[1]//2, -result.shape[0]//2, 0)
         self.canvas.draw()
 
 
-    def plot_3D_axes(self, result):
+    def plot_3D_axes(self):
 
         if hasattr(self, "ax_list") and self.ax_list is not None:
             for axis in self.ax_list:
@@ -212,11 +208,89 @@ class veget_indices(hyperspectral_appli):
                 print(f"Centered on: {picked[:3]}")  # Debugging
 
 
+    def load(self, file_path, wavelenght, data_img):
+        self.variable_init() # Clear all variables
+        # Load the image and wavelengths
+        self.file_path = file_path
+        self.wavelengths = wavelenght
+        self.data_img = data_img
+
+        # Clear the axes
+        if hasattr(self, "mesh") and self.mesh is not None:
+            self.mesh.parent = None  # Reset reference
+        custom_clear(self.axs[0])
+        WL_MIN = wavelenght[0]
+        # Display the image
+        if WL_MIN <= 450:
+            R = closest_id(700, wavelenght)
+            G = closest_id(550, wavelenght)       
+            B = closest_id(450, wavelenght)
+            # print(f"RGB : {R}, {G}, {B}")
+            # print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
+            RGB_img = self.data_img[:,:,(R,G,B)]
+
+
+            if RGB_img.max()*2 < 1:
+                try:
+                    RGB_img = 2*RGB_img.view(np.ndarray)
+                except ValueError:
+                    pass
+            self.axs[0].imshow(RGB_img)
+        else:
+            print("RGB values not supported")
+        self.canvas.draw()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class MyWindow(QMainWindow):
+    # Define a signal that emits new width & height
+    
+    resized = Signal(int, int)
+    def __init__(self):
+        super().__init__()
+        # Create an instance of CustomWidget and pass the resize signal
+        self.widget = veget_indices()
+        self.file_path ="D:/MAXIME/cours/4eme_annee/Projet_M1/wetransfer_data_m1_nantes_2025-03-25_1524/Data_M1_Nantes/VNIR(400-1000nm)/E2_Adm_On_J0_Pl1_F1_2.bil.hdr"
+        img = sp.open_image(self.file_path)
+        self.data_img = img.load()
+        if 'wavelength' in img.metadata:
+            self.wavelengths = img.metadata['wavelength']
+        elif "Wavelength" in img.metadata:
+            self.wavelengths = img.metadata['Wavelength']
+        self.wavelengths = [float(i) for i in self.wavelengths]
+        self.setCentralWidget(self.widget)
+
+        self.resized.connect(lambda : self.widget.load(self.file_path, self.wavelengths, self.data_img))
+
+
+
+    def resizeEvent(self, event):
+        """ Emits the signal when the window is resized """
+        new_width = self.width()
+        new_height = self.height()
+        self.resized.emit(new_width, new_height) 
+        super().resizeEvent(event)
 
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = veget_indices()
+    window = MyWindow()
     window.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec_())

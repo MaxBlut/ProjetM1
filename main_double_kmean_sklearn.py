@@ -11,7 +11,9 @@ from PySide6.QtWidgets import (
 )
 
 from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider, hyperspectral_appli
-from utiles import mean_spectre_of_cluster, custom_clear
+from utiles import mean_spectre_of_cluster, custom_clear, closest_id
+
+from PySide6.QtCore import Signal, Qt
 
 import re
 
@@ -30,7 +32,7 @@ sp.settings.envi_support_nonlowercase_params = True
 
 
 
-class KMeansApp(hyperspectral_appli):
+class KMeansApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("K-Means Clustering on HDR Images")
@@ -43,7 +45,7 @@ class KMeansApp(hyperspectral_appli):
         self.param_has_changed_spectra = True       #   
         self.file_path = None   # chemin d'acces du fichier HDR
         self.croped_wavelength = None   # liste des longueurs d'ondes comprises entre les valeurs min et max du double slider
-        self.original_wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
+        self.wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
         self.data_img = None        
         self.first_cluster_map = None       # np.array de nombres entier positifs représentant les indices des clusters pour chaques pixels     
         self.second_cluster_map = None      # np.array de 0 et 1 représentant les indices de la feuille ou du background 
@@ -58,22 +60,14 @@ class KMeansApp(hyperspectral_appli):
 
         layout = QVBoxLayout()
 
-        # File Selection
-        file_layout = QHBoxLayout()
-        self.file_label = QLabel("Aucun fichier sélectionné")
-        file_button = QPushButton("Choisir un fichier")
-        file_button.clicked.connect(self.load_file)
-        file_layout.addWidget(file_button)
-        file_layout.addWidget(self.file_label)
-        layout.addLayout(file_layout)
-
         # Matplotlib Figure
         self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10))
         self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
         self.axs[0].set_title("hyperspectral image")
         self.axs[1].set_title("spectrum")
         self.canvas = CustomCanvas(self.figure, self.axs)
-        layout.addWidget(CustomToolbar(self.canvas, self))
+        self.toolbar = CustomToolbar(self.canvas, self)
+        layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
         
         # Buttons 
@@ -110,7 +104,6 @@ class KMeansApp(hyperspectral_appli):
         self.n_iterations_input.textChanged.connect(self.set_param_has_changed)  
         
         # Connect buttons
-        self.btn_show_image.clicked.connect(self.display_image)
         self.btn_first_kmean.clicked.connect(self.apply_first_kmean)
         self.btn_second_kmean.clicked.connect(self.apply_second_kmean)
         self.btn_spectra.clicked.connect(self.display_spectra)
@@ -131,7 +124,7 @@ class KMeansApp(hyperspectral_appli):
         if self.file_path :
             self.data_img = sp.open_image(self.file_path).load()[:,:,self.wl_min_cursor:self.wl_max_cursor]
             self.set_param_has_changed()
-            self.croped_wavelength = self.original_wavelengths[self.wl_min_cursor:self.wl_max_cursor]
+            self.croped_wavelength = self.wavelengths[self.wl_min_cursor:self.wl_max_cursor]
             # print("image data cropped between ",self.wavelengths[0]," and ", self.wavelengths[-1])
 
 
@@ -212,7 +205,7 @@ class KMeansApp(hyperspectral_appli):
             return
         if event.inaxes == self.axs[0]:  # Check if click is on the left graph
             x, y = int(event.xdata), int(event.ydata)
-            print("click event detected in left axs")
+            # print("click event detected in left axs")
 
             # Identify the cluster under the click
             if self.first_cluster_map is not None:
@@ -231,11 +224,96 @@ class KMeansApp(hyperspectral_appli):
         self.axs[1].plot(self.croped_wavelength,moyenne, label="merged cluster")
         self.canvas.draw("legend")
 
+
+    def load(self, file_path, wavelenght, data_img):
+        self.variable_init() # Clear all variables
+        # Load the image and wavelengths
+        self.file_path = file_path
+        self.wavelengths = wavelenght
+        self.data_img = data_img
+        self.croped_wavelength = self.wavelengths
+
+        self.wl_min_cursor =self.wavelengths[0]
+        self.wl_max_cursor =self.wavelengths[-1]
+        self.slider_widget.setWavelenghts(self.wavelengths)
+        # Clear the axes
+        custom_clear(self.axs[0])
+        custom_clear(self.axs[1])
+        WL_MIN = wavelenght[0]
+        # Display the image
+        if WL_MIN <= 450:
+            R = closest_id(700, wavelenght)
+            G = closest_id(550, wavelenght)       
+            B = closest_id(450, wavelenght)
+            # print(f"RGB : {R}, {G}, {B}")
+            # print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
+            RGB_img = self.data_img[:,:,(R,G,B)]
+
+
+            if RGB_img.max()*2 < 1:
+                try:
+                    RGB_img = 2*RGB_img.view(np.ndarray) # augmente la luminosité de l'image
+                except ValueError:
+                    pass
+            self.axs[0].imshow(RGB_img)
+        else:
+            print("RGB values not supported")
+        self.canvas.draw()
+
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            self.toolbar.plot_overlay()
+        else:
+            super().keyPressEvent(event)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class MyWindow(QMainWindow):
+    # Define a signal that emits new width & height
     
+    resized = Signal(int, int)
+    def __init__(self):
+        super().__init__()
+        # Create an instance of CustomWidget and pass the resize signal
+        self.widget = KMeansApp()
+        self.file_path ="D:/MAXIME/cours/4eme_annee/Projet_M1/wetransfer_data_m1_nantes_2025-03-25_1524/Data_M1_Nantes/VNIR(400-1000nm)/E2_Adm_On_J0_Pl1_F1_2.bil.hdr"
+        img = sp.open_image(self.file_path)
+        self.data_img = img.load()
+        if 'wavelength' in img.metadata:
+            self.wavelengths = img.metadata['wavelength']
+        elif "Wavelength" in img.metadata:
+            self.wavelengths = img.metadata['Wavelength']
+        self.wavelengths = [float(i) for i in self.wavelengths]
+        self.setCentralWidget(self.widget)
+
+        self.resized.connect(lambda : self.widget.load(self.file_path, self.wavelengths, self.data_img))
+
+
+
+    def resizeEvent(self, event):
+        """ Emits the signal when the window is resized """
+        new_width = self.width()
+        new_height = self.height()
+        self.resized.emit(new_width, new_height) 
+        super().resizeEvent(event)
+
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = KMeansApp()
+    window = MyWindow()
     window.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec_())
