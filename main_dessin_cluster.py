@@ -18,13 +18,12 @@ sp.settings.envi_support_nonlowercase_params = True
 
 
 class MainWindow_draw_cluster(QWidget):
-    def __init__(self,resize_signal = None):
+    def __init__(self):
         super().__init__()
         self.setWindowTitle("Matplotlib in PyQt - Click Detection")
         self.variable_init()
         self.init_ui()
-        if resize_signal is not None:
-            resize_signal.connect(self.on_resize)
+
         
 
 
@@ -85,12 +84,6 @@ class MainWindow_draw_cluster(QWidget):
         self.button_confirm.setShortcut("Return")
         self.button_delete.setShortcut("Delete")
         
-        
-    def on_resize(self):
-        self.file_path = "feuille_250624_ref.hdr"
-        
-
-
 
     def on_click(self, event):
         # Handle mouse click events.
@@ -231,6 +224,7 @@ class MainWindow_draw_cluster(QWidget):
             self.axs[0].imshow(RGB_img)
         else:
             print("RGB values not supported")
+        self.canvas.draw()
 
 
 
@@ -274,12 +268,6 @@ class MyWindow(QMainWindow):
 
     def resizeEvent(self, event):
         """ Emits the signal when the window is resized """
-
-
-
-
-
-
         new_width = self.width()
         new_height = self.height()
         self.resized.emit(new_width, new_height) 

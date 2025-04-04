@@ -19,7 +19,7 @@ from vispy import scene
 from vispy.scene import visuals, transforms
 
 
-class veget_indices(hyperspectral_appli):
+class veget_indices():
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Dropdown Plotter")
@@ -45,18 +45,11 @@ class veget_indices(hyperspectral_appli):
         self.dropdown = QComboBox()
         layout.addWidget(self.dropdown)
 
-        # Button to load file
-        self.load_button = QPushButton("Load File")
-        self.load_button.clicked.connect(self.load_file)
-        layout.addWidget(self.load_button)
-
         # Plot button
         self.plot_button = QPushButton("Plot")
         self.plot_button.clicked.connect(self.process_equation)
         layout.addWidget(self.plot_button)
-        
-
-
+     
         # Matplotlib Figure and Canvas
         self.axs=[None]
         self.figure, self.axs[0] = plt.subplots(1, 1, figsize=(5, 5))
@@ -67,22 +60,20 @@ class veget_indices(hyperspectral_appli):
         # Create a VisPy canvas (GPU-rendered)
         self.SceneCanvas = scene.SceneCanvas(keys='interactive', bgcolor='white')
         figure_layout.addWidget(self.SceneCanvas.native)
+        layout.addLayout(figure_layout)
 
         # Create a 3D view
         self.view = self.SceneCanvas.central_widget.add_view()
         self.view.camera = 'turntable'  # Interactive 3D rotation
         self.view.camera.scale_factor = 600
 
-
-        layout.addLayout(figure_layout)
-
         # toolbar
         self.toolbar = NavigationToolbar(self.canvas, self)
         layout.addWidget(self.toolbar)
 
-        self.setLayout(layout)
         self.populate_drop_down()
-
+        
+        self.setLayout(layout)
         # Connect mouse movement event
         self.SceneCanvas.events.mouse_press.connect(self.on_mouse_click)
 
