@@ -132,7 +132,7 @@ def nmToRGB(wavelength):
 
 
 # Fonction principale pour calculer l'image RGB
-def calcule_true_rgb_opti(k, reflectance_image):
+def calcule_true_rgb_opti(k, reflectance_image, wavelength):
     
     # Calcul de l'indice de la bande en fonction de la longueur d'onde
     
@@ -142,7 +142,7 @@ def calcule_true_rgb_opti(k, reflectance_image):
     reflectance = np.array(reflectance, dtype=np.float32)
 
     # Calcul des valeurs RGB pour chaque pixel
-    r, g, b = nmToRGB(reflectance_image.metadata['wavelength'][k])  # Conversion de la longueur d'onde en RGB
+    r, g, b = nmToRGB(wavelength[k])  # Conversion de la longueur d'onde en RGB
     true_rgb_img = np.zeros((reflectance.shape[0], reflectance.shape[1], 3), dtype=np.uint8)
 
     # Calcul des composantes RGB
@@ -160,14 +160,6 @@ def calcule_true_rgb_opti(k, reflectance_image):
 
     return true_rgb_img
 
-def calcule_rgb_3slid(wl_r, wl_g, wl_b, reflectance_image):
-    wlMin, wlMax = 402, 998  # Plage de longueurs d'onde
-    if reflectance_image is None:
-        print("Erreur : image non chargée correctement.")
-  
-    reflectance_image = reflectance_image[:,:,(round((wl_r - wlMin) / 2),round((wl_g - wlMin) / 2),round((wl_b - wlMin) / 2))]
-
-    return reflectance_image
 
 def calcule_true_gray_opti(k, reflectance_image):
     reflectance = reflectance_image.read_band(k)  # Lecture des données de réflexion pour cette bande
@@ -183,40 +175,12 @@ def calcule_true_gray_opti(k, reflectance_image):
     return gray_img
 
 
-def calcule_rgb_plage2(wl_min, wl_max):
-    """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde."""
-    img = sp.open_image("feuille_250624_ref.hdr")  # Charger l'image hyperspectrale
 
-    # Obtenir les dimensions de l'image
-    nblines, nbcolones, nb_bandes = img.shape
-
-    # Initialiser l'image RGB avec des zéros
-    true_rgb_img = np.zeros((nblines, nbcolones, 3), dtype=np.float32)
-
-    # Calcul des indices des longueurs d'onde
-    for wl in range(wl_min, wl_max + 1, 2):  # On prend un pas de 2 pour suivre l'échantillonnage
-        k = round((wl - 400) / 2)  # Calcul de l'indice correspondant à la bande
-        if 0 <= k < nb_bandes:
-            reflectance = img.read_band(k)  # Lecture de la bande k
-            r, g, b = nmToRGB(wl)  # Conversion de la longueur d'onde en RGB
-            true_rgb_img[:, :, 0] += r * reflectance
-            true_rgb_img[:, :, 1] += g * reflectance
-            true_rgb_img[:, :, 2] += b * reflectance
-    # print(true_rgb_img.min())
-    # print(true_rgb_img.max())
-
-    true_rgb_img -= true_rgb_img.min()  # Ramène le minimum à 0
-    true_rgb_img /= true_rgb_img.max()  # Normalisation entre 0 et 1
-    true_rgb_img *= 255
-
-    return true_rgb_img.astype(np.uint8)  # Convertir en entiers 8 bits pour l'affichage
-
-
-def calcule_rgb_plage(img, metadata, wl_min_idx, wl_max_idx):
+def calcule_rgb_plage(img, wavelength, wl_min_idx, wl_max_idx):
     """Reconstitue l'image RGB à partir d'une plage de longueurs d'onde définie par les indices."""
     
     nblines, nbcolones, nb_bandes = img.shape
-    wavelengths = np.array(metadata['wavelength'], dtype=float)
+    wavelengths = np.array(wavelength, dtype=float)
     
     # Vérifier que les indices sont valides
     if not (0 <= wl_min_idx < len(wavelengths) and 0 <= wl_max_idx < len(wavelengths)):

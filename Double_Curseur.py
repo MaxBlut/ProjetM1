@@ -7,9 +7,8 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
-import main as m
 from CustomElement import CustomWidgetRangeSlider
-
+from utiles import calcule_rgb_plage, mean_spectre_of_cluster
 import os
 import spectral as sp
 import time
@@ -21,10 +20,11 @@ from qtpy.QtCore import Qt
 
 
 class Double_Curseur(QWidget):
-    def __init__(self, RGB_img, save_import):
+    def __init__(self, RGB_img):
         super().__init__()
         self.file_path = None
-        self.file_data = None
+        self.wavelength = None
+        self.img_data = None
         # self.setStyleSheet("background-color: #2E2E2E;")
         self.text = "Aucun commentaire effectué"
 
@@ -54,7 +54,7 @@ class Double_Curseur(QWidget):
         self.import_button = QPushButton("Analyser")
         self.import_button.clicked.connect(self.import_file)
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
-        save_import.signals.fichier_importe.connect(self.update_file)
+        # save_import.signals.fichier_importe.connect(self.update_file)
 
         self.comment = QPushButton("Commenter")
         self.comment.clicked.connect(self.commenter)
@@ -100,10 +100,10 @@ class Double_Curseur(QWidget):
 
     def update_image(self):
         idx_min, idx_max = self.slider_widget.range_slider.value()
-        img_data = m.calcule_rgb_plage(self.file_data, self.metadata, idx_min, idx_max)
+        img_data = calcule_rgb_plage(self.open_file, self.wavelength, idx_min, idx_max)
         img_array = np.array(img_data, dtype=np.uint8)
         self.Img_ax.clear()
-        title = f"Image reconstituée entre {self.metadata['wavelength'][idx_min]} nm et {self.metadata['wavelength'][idx_max]} nm"
+        title = f"Image reconstituée entre {self.wavelength[idx_min]} nm et {self.wavelength[idx_max]} nm"
         self.Img_ax.imshow(img_array)
         self.Img_ax.set_title(title, fontsize=16, color='black', pad=20)  # Ajoute le titre
 
@@ -114,41 +114,43 @@ class Double_Curseur(QWidget):
         wl_min, wl_max = self.slider_widget.range_slider.value()
         self.spectrum_ax.clear()
 
-        self.spectrum_ax.plot(self.metadata["wavelength"][wl_min:wl_max], self.spectrum_y[wl_min:wl_max], color='cyan')
+        self.spectrum_ax.plot(self.wavelength[wl_min:wl_max], self.spectrum_y[wl_min:wl_max], color='cyan')
 
         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='black')
         self.spectrum_ax.set_ylabel("Intensité", color='black')
-        self.spectrum_ax.set_xlim(self.metadata["wavelength"][wl_min], self.metadata["wavelength"][wl_max])
-        self.spectrum_ax.set_xticks([self.metadata["wavelength"][wl_min], self.metadata["wavelength"][wl_max]])
-        self.spectrum_ax.set_xticklabels([f"{float(self.metadata['wavelength'][wl_min]):.0f}", f"{float(self.metadata['wavelength'][wl_max]):.0f}"])
+        self.spectrum_ax.set_xlim(self.wavelength[wl_min], self.wavelength[wl_max])
+        self.spectrum_ax.set_xticks([self.wavelength[wl_min], self.wavelength[wl_max]])
+        self.spectrum_ax.set_xticklabels([f"{float(self.wavelength[wl_min]):.0f}", f"{float(self.wavelength[wl_max]):.0f}"])
         # self.spectrum_ax.set_xticklabels(f"{self.metadata['wavelength'][wl_min]}", f"{self.metadata['wavelength'][wl_max]}")
         self.spectrum_ax.tick_params(axis='x', colors='black')
         self.spectrum_ax.tick_params(axis='y', colors='black')
         self.figure.tight_layout()
         self.canvas.draw()
 
-    def import_file(self):
-        self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
-        QApplication.processEvents()
+    def load_file(self, file_path, wavelength, data_img):
+        self.wavelength = wavelength
+        self.file_path = file_path
+        self.img_data = data_img
+        self.open_file = sp.open_image(self.file_path)
 
-        self.file_data = sp.open_image(self.file_path)
-        self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
-        self.metadata = self.file_data.metadata  # Récupérer les métadonnées
-        self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
+        # QApplication.processEvents()
+        # self.file_data = sp.open_image(self.file_path)
+        
+        self.imgopt = self.Img_ax.imshow(self.img_data[:,:,(0,1,2)])
         self.Img_ax.axis('off')
 
-        img_data_calculated = m.calcule_rgb_plage(self.file_data, self.metadata, 0, int(self.metadata["bands"])-1)
+        img_data_calculated = calcule_rgb_plage(self.img_data, self.wavelength, 0, len(self.wavelength-1))
         img_array = np.array(img_data_calculated, dtype=np.uint8)
         self.Img_ax.clear()
         self.Img_ax.imshow(img_array)
         self.Img_ax.axis('off')
         self.canvas.draw()
 
-        self.slider_widget.range_slider.setRange(0, int(self.metadata["bands"])-1)
-        self.slider_widget.setWavelenghts(self.metadata["wavelength"])
+        self.slider_widget.range_slider.setRange(0, len(self.wavelength)-1)
+        self.slider_widget.setWavelenghts(self.wavelength)
 
-        self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
-        self.spectrum_x = np.array(self.metadata["wavelength"])
+        self.spectrum_ax.set_xlim(float(self.wavelength[0]), float(self.wavelength[-1]))
+        self.spectrum_x = np.array(self.wavelength)
         self.spectrum_x = self.spectrum_x.astype(float)
         self.spectrum_y = np.mean(self.img_data, axis=(0, 1))  # Moyenne des pixels par bande
         self.spectrum_ax.plot(self.spectrum_x, self.spectrum_y, color='cyan')
@@ -158,5 +160,3 @@ class Double_Curseur(QWidget):
     def commenter(self):
         self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
 
-class SignalEmitter(QObject):
-    fichier_importe = Signal(str)  # Signal émis lors de l'importation d'un fichier

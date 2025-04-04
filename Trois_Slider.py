@@ -7,7 +7,6 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
-import main as m
 from CustomElement import CustomWidgetRangeSlider
 
 import os
@@ -21,9 +20,11 @@ from qtpy.QtCore import Qt
 
 
 class Trois_Slider(QWidget):
-    def __init__(self, RGB_img, save_import):
+    def __init__(self, RGB_img):
         super().__init__()
         self.file_path = None
+        self.img_data = None
+        self.wavelength = None
         self.text = "Aucun commentaire effectué"
         self.setStyleSheet("background-color: #2E2E2E;")
         
@@ -103,11 +104,9 @@ class Trois_Slider(QWidget):
         self.import_button.clicked.connect(self.import_file)
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
         self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
-        save_import.signals.fichier_importe.connect(self.update_file)
 
         self.comment = QPushButton("Commenter")
         self.comment.clicked.connect(self.commenter)
-
 
         self.import_button.setStyleSheet("""
             QPushButton {
@@ -122,8 +121,6 @@ class Trois_Slider(QWidget):
                 background-color: #4A4A4A;
             }
         """)
-
-        
 
         # Création des labels
         self.r_label = QLabel("R")
@@ -221,8 +218,6 @@ class Trois_Slider(QWidget):
         self.figure.tight_layout()
         self.figure.tight_layout()
 
-
-
         self.setLayout(img_layout)
         self.Img_ax.imshow(RGB_img)
         self.Img_ax.axis('off')
@@ -230,7 +225,6 @@ class Trois_Slider(QWidget):
 
     def update_file(self, path):
         self.file_path = path
-        print("je suis la")
         self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
 
     def update_slid_text(self):
@@ -240,14 +234,14 @@ class Trois_Slider(QWidget):
         wl_b = self.slid_b.value()
 
         # Mettre à jour le texte des labels
-        self.value_r.setText(f"{self.metadata['wavelength'][wl_r]} nm")
-        self.value_g.setText(f"{self.metadata['wavelength'][wl_g]} nm")
-        self.value_b.setText(f"{self.metadata['wavelength'][wl_b]} nm")
+        self.value_r.setText(f"{self.wavelength[wl_r]} nm")
+        self.value_g.setText(f"{self.wavelength[wl_g]} nm")
+        self.value_b.setText(f"{self.wavelength[wl_b]} nm")
 
         # Afficher la valeur des sliders sous forme de tooltip
-        self.slid_r.setToolTip(f"{self.metadata['wavelength'][wl_r]} nm")
-        self.slid_g.setToolTip(f"{self.metadata['wavelength'][wl_g]} nm")
-        self.slid_b.setToolTip(f"{self.metadata['wavelength'][wl_b]} nm")
+        self.slid_r.setToolTip(f"{self.wavelength[wl_r]} nm")
+        self.slid_g.setToolTip(f"{self.wavelength[wl_g]} nm")
+        self.slid_b.setToolTip(f"{self.wavelength[wl_b]} nm")
 
 
     def update_image(self):
@@ -256,34 +250,37 @@ class Trois_Slider(QWidget):
         wl_r = self.slid_r.value()
         wl_g = self.slid_g.value()
         wl_b = self.slid_b.value()
-        title = f"Image reconstituée interpretant la longueur d'onde R comme {self.metadata['wavelength'][wl_r]} nm, G: {self.metadata['wavelength'][wl_g]} nm, B: {self.metadata['wavelength'][wl_b]} nm"
+        title = f"Image reconstituée interpretant la longueur d'onde R comme {self.wavelength[wl_r]} nm, G: {self.wavelength[wl_g]} nm, B: {self.wavelength[wl_b]} nm"
         self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre
 
-        self.imgopt.set_data(self.file_data[:, :, (wl_r, wl_g, wl_b)])
+        self.imgopt.set_data(self.img_data[:, :, (wl_r, wl_g, wl_b)])
         self.canvas.draw_idle()
 
 
 
-    def import_file(self):
-        self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
-        # Afficher l'animation de chargement
-        QApplication.processEvents() 
+    def load_file(self, file_path, wavelength, data_img):
+        self.wavelength = wavelength
+        self.file_path = file_path
+        self.img_data = data_img
+        # self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
+        # # Afficher l'animation de chargement
+        # QApplication.processEvents() 
         
         # Stopper l'animation après le chargement
         
-        self.file_data = sp.open_image(self.file_path)
-        self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
-        self.metadata = self.file_data.metadata  # Récupérer les métadonnées
-        self.imgopt = self.Img_ax.imshow(self.file_data[:,:,(0,1,2)])
+        # self.file_data = sp.open_image(self.file_path)
+        # self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
+        # self.metadata = self.file_data.metadata  # Récupérer les métadonnées
+        self.imgopt = self.Img_ax.imshow(self.img_data[:,:,(0,1,2)])
         self.Img_ax.axis('off')
 
         # Charger le fichier HDR
 
-        self.slid_r.setRange(0, int(self.metadata["bands"])-1)
-        self.slid_g.setRange(0, int(self.metadata["bands"])-1)
-        self.slid_b.setRange(0, int(self.metadata["bands"])-1)
+        self.slid_r.setRange(0, len(self.wavelength)-1)
+        self.slid_g.setRange(0, len(self.wavelength)-1)
+        self.slid_b.setRange(0, len(self.wavelength)-1)
 
-        self.spectrum_ax.set_xlim(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+        self.spectrum_ax.set_xlim(float(self.wavelength[0]), float(self.wavelength[-1]))
         
         self.value_r.setText(" Choisissez une longueur d'onde")
         self.value_g.setText(" ")
@@ -311,7 +308,7 @@ class Trois_Slider(QWidget):
         self.canvas.draw()  # Rafraîchir l'affichage
 
     def on_click(self, event):
-        if self.img_data is None or self.metadata is None:
+        if self.img_data is None:
             print("Aucune image hyperspectrale chargée.")
             return
 
@@ -327,11 +324,11 @@ class Trois_Slider(QWidget):
             return
 
         # Récupération des longueurs d'onde choisies
-        wavelengths = [self.metadata['wavelength'][self.slid_r.value()],self.metadata['wavelength'][self.slid_g.value()], self.metadata['wavelength'][self.slid_b.value()]]
+        wavelengths = [self.wavelength[self.slid_r.value()],self.wavelength[self.slid_g.value()], self.wavelength[self.slid_b.value()]]
         reflectance_values = []
 
         # Conversion des longueurs d'onde en indices de bande
-        wavelengths_available = np.array(self.metadata['wavelength'], dtype=float)
+        wavelengths_available = np.array(self.wavelength, dtype=float)
         for wl in wavelengths:
             idx = np.abs(wavelengths_available - float(wl)).argmin()
             reflectance_values.append(self.img_data[y, x, idx])
@@ -342,5 +339,3 @@ class Trois_Slider(QWidget):
     def commenter(self):
         self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "") 
 
-class SignalEmitter(QObject):
-    fichier_importe = Signal(str)  # Signal émis lors de l'importation d'un fichier
