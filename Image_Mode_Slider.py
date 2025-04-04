@@ -8,7 +8,7 @@ from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
 import main as m
-from test3 import CustomWidgetRangeSlider
+from CustomElement import CustomWidgetRangeSlider
 
 import os
 import spectral as sp
@@ -27,6 +27,7 @@ plt.ioff()
 class Image_Mode_Slider(QWidget):
     def __init__(self, RGB_img, save_import):
         super().__init__()
+        self.wavelength = None
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText("Écrivez ici une description ou un commentaire...")
         self.text_edit.setStyleSheet("background-color: #3A3A3A; color: white; font-size: 14px; padding: 5px; border-radius : 5px")
@@ -240,9 +241,9 @@ class Image_Mode_Slider(QWidget):
         self.file_path = sp.open_image(os.path.basename(self.file_path))
         self.img_data = self.file_path.load()  # Charger en tant que tableau NumPy
         self.metadata = self.file_path.metadata  # Récupérer les métadonnées
-        self.left_label = QLabel(f"{self.metadata['wavelength'][0]} nm")
-        self.right_label = QLabel(f"{self.metadata['wavelength'][-1]} nm")
-        self.slider.setRange(float(self.metadata["wavelength"][0]), float(self.metadata["wavelength"][-1]))
+        self.left_label = QLabel(f"{self.wavelength[0]} nm")
+        self.right_label = QLabel(f"{self.wevelength[-1]} nm")
+        self.slider.setRange(float(self.wavelength[0]), float(self.wavelength[-1]))
 
     def commenter(self):
           self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "")
