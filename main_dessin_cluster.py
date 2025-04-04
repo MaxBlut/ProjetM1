@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication,QWidget, QVBoxLayout, QPushButton,QLa
 from PySide6.QtCore import Signal
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
-from utiles import mean_spectre_of_cluster, are_intersecting
+from utiles import mean_spectre_of_cluster, are_intersecting, custom_clear, closest_id
 
 from CustomElement import CustomCanvas,hyperspectral_appli
 
@@ -37,11 +37,8 @@ class MainWindow_draw_cluster(QWidget):
         self.points = []        # List to store clicked points
         self.point_plots = []   # Store plotted points Object for easy removal
         self.line_plots = []    # Store plotted lines Object for easy removal
-        self.croped_wavelength = None   # liste des longueurs d'ondes comprises entre les valeurs min et max du double slider
         self.wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
-        self.WL_MIN = None        # la valeur de la plus petite longueur d'onde enregistré par la caméra (constante)
-        self.wl_min_cursor = None       # l'inice de longueur d'onde min du slider
-        self.wl_max_cursor = None       # l'inice de longueur d'onde max du slider
+
 
 
     def init_ui(self):
@@ -111,7 +108,7 @@ class MainWindow_draw_cluster(QWidget):
                 # print(f"Added: {self.points[-1]}")
             elif event.button == 3 and self.points:  # Right click to remove the last point
                 if self.overlay == None:
-                    removed_point = self.points.pop()
+                    self.points.pop()
                     point_to_remove = self.point_plots.pop()
                     point_to_remove.remove()  # Remove the last plotted point
                     # print(f"Removed: {removed_point}")
@@ -203,12 +200,48 @@ class MainWindow_draw_cluster(QWidget):
         self.canvas.draw()
 
 
+    def load(self, file_path, wavelenght, data_img):
+        self.variable_init() # Clear all variables
+        # Load the image and wavelengths
+        self.file_path = file_path
+        self.wavelengths = wavelenght
+        self.data_img = data_img
+        # Clear the axes
+        custom_clear(self.axs[0])
+        custom_clear(self.axs[1])
+        WL_MIN = wavelenght[0]
+        # Display the image
+        if WL_MIN <= 450:
+            R = closest_id(700, wavelenght)
+            G = closest_id(550, wavelenght)       
+            B = closest_id(450, wavelenght)
+            print(f"RGB : {R}, {G}, {B}")
+            print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
+            RGB_img = self.data_img[:,:,(R,G,B)]
 
-# if __name__ == "__main__":
-#     app = QApplication(sys.argv)
-#     window = MainWindow_draw_cluster()
-#     window.show()
-#     sys.exit(app.exec())
+
+            if RGB_img.max()*2 < 1:
+                try:
+                    RGB_img = 2*RGB_img.view(np.ndarray)
+                except ValueError:
+                    pass
+            self.axs[0].imshow(RGB_img)
+        else:
+            print("RGB values not supported")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -222,22 +255,28 @@ class MyWindow(QMainWindow):
         super().__init__()
         # Create an instance of CustomWidget and pass the resize signal
         self.widget = MainWindow_draw_cluster(self.resized)
-        file_path ="feuille_250624_ref.hdr"
-        img = sp.open_image(file_path)
-        data_img = img.load()
-
+        self.file_path ="D:/MAXIME/cours/4eme_annee/Projet_M1/wetransfer_data_m1_nantes_2025-03-25_1524/Data_M1_Nantes/VNIR(400-1000nm)/E2_Adm_On_J0_Pl1_F1_2.bil.hdr"
+        img = sp.open_image(self.file_path)
+        self.data_img = img.load()
         if 'wavelength' in img.metadata:
-            wavelengths = img.metadata['wavelength']
+            self.wavelengths = img.metadata['wavelength']
         elif "Wavelength" in img.metadata:
-            wavelengths = img.metadata['Wavelength']
-
-        self.widget.file_path = file_path
-        self.widget.wavelengths = wavelengths
-        self.widget.data_img = data_img 
+            self.wavelengths = img.metadata['Wavelength']
+        self.wavelengths = [float(i) for i in self.wavelengths]
         self.setCentralWidget(self.widget)
+
+        self.resized.connect(lambda : self.widget.load(self.file_path, self.wavelengths, self.data_img))
+
+
 
     def resizeEvent(self, event):
         """ Emits the signal when the window is resized """
+
+
+
+
+
+
         new_width = self.width()
         new_height = self.height()
         self.resized.emit(new_width, new_height) 
