@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication,QWidget, QVBoxLayout, QPushButton,QLabel, QSizePolicy, QHBoxLayout, QFileDialog
+from PySide6.QtWidgets import QApplication,QWidget, QVBoxLayout, QPushButton,QLabel, QSizePolicy, QHBoxLayout, QFileDialog,QMainWindow
 from PySide6.QtCore import Signal
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
@@ -18,12 +18,13 @@ sp.settings.envi_support_nonlowercase_params = True
 
 
 class MainWindow_draw_cluster(QWidget):
-    def __init__(self, resize_signal):
+    def __init__(self,resize_signal = None):
         super().__init__()
         self.setWindowTitle("Matplotlib in PyQt - Click Detection")
         self.variable_init()
         self.init_ui()
-        resize_signal.connect(self.on_resize)
+        if resize_signal is not None:
+            resize_signal.connect(self.on_resize)
         
 
 
@@ -86,7 +87,7 @@ class MainWindow_draw_cluster(QWidget):
         
         
     def on_resize(self):
-        print("rsize_event")
+        self.file_path = "feuille_250624_ref.hdr"
         
 
 
@@ -203,19 +204,49 @@ class MainWindow_draw_cluster(QWidget):
 
 
 
-if __name__ == "__main__":
-    resized = Signal(int,int)
-    app = QApplication(sys.argv)
-    window = MainWindow_draw_cluster(resized)
-    window.show()
-    sys.exit(app.exec())
+# if __name__ == "__main__":
+#     app = QApplication(sys.argv)
+#     window = MainWindow_draw_cluster()
+#     window.show()
+#     sys.exit(app.exec())
+
+
+
+
+
+class MyWindow(QMainWindow):
+    # Define a signal that emits new width & height
+    
+    resized = Signal(int, int)
+    def __init__(self):
+        super().__init__()
+        # Create an instance of CustomWidget and pass the resize signal
+        self.widget = MainWindow_draw_cluster(self.resized)
+        file_path ="feuille_250624_ref.hdr"
+        img = sp.open_image(file_path)
+        data_img = img.load()
+
+        if 'wavelength' in img.metadata:
+            wavelengths = img.metadata['wavelength']
+        elif "Wavelength" in img.metadata:
+            wavelengths = img.metadata['Wavelength']
+
+        self.widget.file_path = file_path
+        self.widget.wavelengths = wavelengths
+        self.widget.data_img = data_img 
+        self.setCentralWidget(self.widget)
 
     def resizeEvent(self, event):
         """ Emits the signal when the window is resized """
-        # width, height = event.size().width(), event.size().height()
-        # self.resized.emit(width, height)  # Emit signal with new size
-        self.resized.emit()
+        new_width = self.width()
+        new_height = self.height()
+        self.resized.emit(new_width, new_height) 
         super().resizeEvent(event)
 
 
 
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MyWindow()
+    window.show()
+    sys.exit(app.exec_())

@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 import numpy as np
+from numpy import sqrt
+
 import re
 
 from utiles import closest_id
@@ -137,9 +139,10 @@ class veget_indices(hyperspectral_appli):
             data = self.data_img[:,:,band_index]
             local_dict[f'R{int(wl)}'] = np.squeeze(data)
         # Evaluate the equation safely
-        
+        local_dict['sqrt'] = sqrt
+        local_dict['abs'] = abs
         try:
-            result = eval(equation, {"__builtins__": {}}, local_dict)
+            result = eval(equation, {"__builtins__": {}} , local_dict) 
         except Exception as e:
             raise ValueError(f"Error evaluating equation: {e}")
         self.axs[0].imshow(result,cmap='nipy_spectral')
