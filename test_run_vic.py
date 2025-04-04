@@ -36,7 +36,8 @@ class MainWindow(QMainWindow):
         self.save_import.matplotlib_widgets = [
             self.matplotlib_widget_rgb, 
             self.matplotlib_widget_double, 
-            self.matplotlib_widget_3slid]
+            self.matplotlib_widget_3slid,
+            ]
         
         
 
@@ -67,7 +68,7 @@ class MainWindow(QMainWindow):
         """)        
 
         self.save_import.import_button.clicked.connect(self.loading_file)
-        
+
 
         layout = QHBoxLayout()
         layout.addWidget(self.save_import)
