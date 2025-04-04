@@ -12,7 +12,7 @@ from utiles import closest_id
 
 from CustomElement import CustomCanvas,hyperspectral_appli
 
-from math import sqrt
+from math import sqrt, pow
 
 
 
@@ -134,7 +134,7 @@ class veget_indices(hyperspectral_appli):
         # Evaluate the equation safely
         
         try:
-            result = eval(equation, {"__builtins__": {}}, local_dict)
+            result = eval(equation, {'sqrt': sqrt, 'abs' : abs} , local_dict) #{"__builtins__": {}},
         except Exception as e:
             raise ValueError(f"Error evaluating equation: {e}")
         self.axs[0].imshow(result,cmap='nipy_spectral')
