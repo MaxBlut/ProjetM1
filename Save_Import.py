@@ -145,7 +145,9 @@ class Save_import(QWidget):
         # self.signals.fichier_importe.emit(self.file_path_noload)  # Émet le signal avec le chemin du fichier
         print("Signal émis")
 
-        self.img = sp.open_image(os.path.basename(self.file_path_noload))
+        # self.img = sp.open_image(os.path.basename(self.file_path_noload))
+        self.img = sp.open_image(self.file_path_noload)
+
         self.data_img = self.img.load()  # Charger en tant que tableau NumPy
         if 'wavelength' in self.img.metadata:
             self.wavelength = self.img.metadata['wavelength']
