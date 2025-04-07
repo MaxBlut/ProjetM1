@@ -147,8 +147,6 @@ class KMeansApp(QWidget):
             self.axs[0].axis('off')
             self.canvas.draw()
             
-            
-    
 
     def apply_second_kmean(self):
         if self.data_img is not None and self.first_cluster_map is not None: # si nous avons les données necessaire au second kmean
@@ -225,7 +223,7 @@ class KMeansApp(QWidget):
         self.canvas.draw("legend")
 
 
-    def load(self, file_path, wavelenght, data_img):
+    def load_file(self, file_path, wavelenght, data_img):
         self.variable_init() # Clear all variables
         # Load the image and wavelengths
         self.file_path = file_path
@@ -299,7 +297,7 @@ class MyWindow(QMainWindow):
         self.wavelengths = [float(i) for i in self.wavelengths]
         self.setCentralWidget(self.widget)
 
-        self.resized.connect(lambda : self.widget.load(self.file_path, self.wavelengths, self.data_img))
+        self.resized.connect(lambda : self.widget.load_file(self.file_path, self.wavelengths, self.data_img))
 
 
 

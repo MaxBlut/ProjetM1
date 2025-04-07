@@ -196,7 +196,7 @@ class MainWindow_draw_cluster(QWidget):
         self.canvas.draw()
 
 
-    def load(self, file_path, wavelenght, data_img):
+    def load_file(self, file_path, wavelenght, data_img):
         self.variable_init() # Clear all variables
         # Load the image and wavelengths
         self.file_path = file_path
@@ -262,7 +262,7 @@ class MyWindow(QMainWindow):
         self.wavelengths = [float(i) for i in self.wavelengths]
         self.setCentralWidget(self.widget)
 
-        self.resized.connect(lambda : self.widget.load(self.file_path, self.wavelengths, self.data_img))
+        self.resized.connect(lambda : self.widget.load_file(self.file_path, self.wavelengths, self.data_img))
 
 
 

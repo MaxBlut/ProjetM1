@@ -1,13 +1,8 @@
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit, QSplitter, QProgressBar, QCheckBox, QRadioButton, QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QFileDialog, QInputDialog
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
-from PySide6.QtCore import QThread, Signal, QObject
-from PySide6.QtGui import QFont, QMovie
-from superqt import QRangeSlider
-from CustomElement import CustomWidgetRangeSlider
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QHBoxLayout, QTabWidget
+
+
 from Save_Import import Save_import
 from Double_Curseur import Double_Curseur
 from Trois_Slider import Trois_Slider
@@ -15,13 +10,7 @@ from Image_Mode_Slider import Image_Mode_Slider
 from main_dessin_cluster import MainWindow_draw_cluster
 from vegetation_indices_GPU import veget_indices_GPU
 from main_double_kmean_sklearn import KMeansApp
-import os
-import spectral as sp
-import time
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from PIL import Image
-from qtpy.QtCore import Qt
+
 
 
 class MainWindow(QMainWindow):
@@ -32,19 +21,30 @@ class MainWindow(QMainWindow):
         self.save_import = Save_import()
         initial_image = np.zeros((100, 100, 3), dtype=np.uint8)  # Image en couleur par défaut
         # self.matplotlib_widget_gris = MatplotlibImage_Gris(initial_image)
+        self.save_import.matplotlib_widgets = []
         self.matplotlib_widget_rgb = Image_Mode_Slider(initial_image)
-        self.matplotlib_widget_double = Double_Curseur(initial_image)
-        self.matplotlib_widget_3slid = Trois_Slider(initial_image)
-        self.widget_drawcluster = MainWindow_draw_cluster()
-        self.widget_veget_i = veget_indices_GPU()
-        self.widget_KMeansApp = KMeansApp()
+        self.save_import.matplotlib_widgets.append(self.matplotlib_widget_rgb)
 
-        self.save_import.matplotlib_widgets = [
-            self.matplotlib_widget_rgb, 
-            self.matplotlib_widget_double, 
-            self.matplotlib_widget_3slid,
-            ]
-        
+        self.matplotlib_widget_double = Double_Curseur(initial_image)
+        self.save_import.matplotlib_widgets.append(self.matplotlib_widget_double)
+
+        self.matplotlib_widget_3slid = Trois_Slider(initial_image)
+        self.save_import.matplotlib_widgets.append(self.matplotlib_widget_3slid)
+
+        self.widget_drawcluster = MainWindow_draw_cluster()
+        self.save_import.matplotlib_widgets.append(self.widget_drawcluster)
+
+        self.widget_veget_i = veget_indices_GPU()
+        self.save_import.matplotlib_widgets.append(self.widget_veget_i)
+
+        self.widget_KMeansApp = KMeansApp()
+        self.save_import.matplotlib_widgets.append(self.widget_KMeansApp)
+
+
+
+        # for dialog in QApplication.instance().topLevelWidgets():
+        #     if isinstance(dialog, QMainWindow):
+        #         print(dialog)
         
 
 
@@ -61,9 +61,9 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab2, "Unique WL")
         self.tabs.addTab(self.tab3, "Plage WL")
         self.tabs.addTab(self.tab4, "RGB-3sliders")
-        self.tabs.addTab(self.tab5, "RGB-3sliders")
-        self.tabs.addTab(self.tab6, "RGB-3sliders")
-        self.tabs.addTab(self.tab7, "RGB-3sliders")
+        self.tabs.addTab(self.tab5, "Draw cluster")
+        self.tabs.addTab(self.tab6, "Indices")
+        self.tabs.addTab(self.tab7, "Kmean")
 
         self.tabs.setStyleSheet("""
             QTabBar::tab {
@@ -126,9 +126,9 @@ class MainWindow(QMainWindow):
 
     def loading_file(self):
         """ Load the file and update the widgets """
-        self.matplotlib_widget_double.load_file(self.save_import.file_path_noload, self.save_import.wavelength, self.save_import.data_img)
-        self.matplotlib_widget_rgb.load_file(self.save_import.file_path_noload, self.save_import.wavelength, self.save_import.data_img)
-        self.matplotlib_widget_3slid.load_file(self.save_import.file_path_noload, self.save_import.wavelength, self.save_import.data_img)
+        for widget in self.save_import.matplotlib_widgets:
+            widget.load_file(self.save_import.file_path_noload, self.save_import.wavelength, self.save_import.data_img)
+        
 
 
 if __name__ == "__main__":

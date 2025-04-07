@@ -1,22 +1,32 @@
 import numpy as np
 import spectral as sp
-from PIL import Image
 import numpy as np
-import matplotlib.pyplot as plt
-from qtpy.QtCore import Qt
-import signal
-from superqt import QRangeSlider
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout
-from PySide6.QtCore import Signal, Slot
-from PySide6.QtWidgets import QLabel, QHBoxLayout
+
+
+
 # Set the envi_support_nonlowercase_params to True to avoid an error message 
 sp.settings.envi_support_nonlowercase_params = True
 
+
+from numpy import sqrt, log10
+
+import re
+
+
+
+
+
+
+
+
+
+
 def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=-1, v1y1=-1):
+    # code inspiré par : https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
     NO = 0
     YES = 1
     COLLINEAR = 2
-    #j'ai copié ce code sur : https://stackoverflow.com/questions/217578/how-can-i-determine-whether-a-2d-point-is-within-a-polygon
+    
     # Convert vector 1 to a line (line 1) of infinite length.
     a1 = v1y2 - v1y1
     b1 = v1x1 - v1x2
@@ -51,6 +61,11 @@ def are_intersecting(v1x2, v1y2, v2x1, v2y1, v2x2, v2y2, v1x1=-1, v1y1=-1):
     return YES
 
 
+
+
+
+
+
 def mean_spectre_of_cluster(cluster_map, data, selected_cluster_value=1):
     # Get the mean spectrum of a cluster in a hyperspectral image.
     # Args:
@@ -63,10 +78,16 @@ def mean_spectre_of_cluster(cluster_map, data, selected_cluster_value=1):
 
 
 
+
+
+
 # Extend the Axes class with `set_legend` and `get_legend`
 def set_legend(ax, legend):
     """Manually sets a custom legend reference on the axis."""
     ax._custom_legend = legend
+
+
+
 
 
 def get_legend(ax):
@@ -74,9 +95,22 @@ def get_legend(ax):
     return getattr(ax, "_custom_legend", None)
 
 
+
+
+
+
+
+
 def custom_clear(ax):
     ax.clear()
     set_legend(ax, None)
+
+
+
+
+
+
+
 
 
 def closest_id(wl, wl_list, accuracy=5):
@@ -90,6 +124,17 @@ def closest_id(wl, wl_list, accuracy=5):
         else:
             break
     return id
+
+
+
+
+
+
+
+
+
+
+
 
 def nmToRGB(wavelength):
     # This function takes a wavelength value as an input and returns the corresponding RGB values
@@ -129,15 +174,16 @@ def nmToRGB(wavelength):
     return red, green, blue
     
 
-    
-# def on_close(event):
-#     print("La fenêtre a été fermée.")
-#     plt.close()  # Ferme la fenêtre de matplotlib proprement
 
 
-# Fonction principale pour calculer l'image RGB
+
+
+
+
+
+
 def calcule_true_rgb_opti(k, reflectance_image, wavelength):
-    
+    """ Fonction principale pour calculer l'image RGB """
     # Calcul de l'indice de la bande en fonction de la longueur d'onde
     
     reflectance = reflectance_image.read_band(k)  # Lecture des données de réflexion pour cette bande
@@ -165,6 +211,17 @@ def calcule_true_rgb_opti(k, reflectance_image, wavelength):
     return true_rgb_img
 
 
+
+
+
+
+
+
+
+
+
+
+
 def calcule_true_gray_opti(k, reflectance_image):
     reflectance = reflectance_image.read_band(k)  # Lecture des données de réflexion pour cette bande
 
@@ -177,6 +234,16 @@ def calcule_true_gray_opti(k, reflectance_image):
     # Mise à l'échelle des valeurs pour les convertir en niveaux de gris (0 à 255)
     gray_img = (reflectance * 255).astype(np.uint8)
     return gray_img
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -227,3 +294,62 @@ def calcule_rgb_plage(img, wavelength, wl_min_idx, wl_max_idx):
 
     
     return true_rgb_img.astype(np.uint8)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def resolv_equation(equation,data_img,wavelengths):
+    # Create a dictionary that maps RXXXX to the correct band in hyperspectral data
+    local_dict = {}
+
+    if "where" in equation:
+        eq_list = equation.split("where", 1)
+
+        for i in range(1, len(eq_list)): # we start at 1 to not include the first equation
+            sub_eq = eq_list[i]
+            if "=" in sub_eq:
+                # Split the equation into variable and equation parts
+                alpha, sub_eq = sub_eq.split("=", 1)
+                alpha = alpha.strip()
+                sub_eq = sub_eq.strip().rstrip(",")
+                result = resolv_equation(sub_eq,data_img,wavelengths)
+                local_dict[alpha] = result
+        equation = eq_list[0].strip()
+        
+    # Extract wavelength values from the equation
+    found_wavelengths = re.findall(r'R(\d+)', equation)
+    
+    if len(found_wavelengths)==0:
+        print("no wl found in the equation text")
+        return -2
+    
+    for wl in found_wavelengths:
+        wl = int(wl)
+        band_index = closest_id(wl,wavelengths,accuracy=2)
+        if band_index is None:
+            print("wl value not found")
+            return -1
+        data = data_img[:,:,band_index]
+        local_dict[f'R{int(wl)}'] = np.squeeze(data)
+    # Evaluate the equation safely
+    local_dict['sqrt'] = sqrt
+    local_dict['abs'] = abs
+    local_dict['log'] = log10
+    try:
+        result = eval(equation, {"__builtins__": {}} , local_dict) 
+    except Exception as e:
+        raise ValueError(f"Error evaluating equation: {e}")
+    return result

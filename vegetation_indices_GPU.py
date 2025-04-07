@@ -1,17 +1,15 @@
 import sys
 import random
 import spectral as sp
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QComboBox, QFileDialog,QHBoxLayout,QMainWindow
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QComboBox, QFileDialog,QHBoxLayout,QMainWindow,QDialog,QLabel,QLineEdit,QTextEdit
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 import numpy as np
-from numpy import sqrt
 
-import re
 
-from utiles import closest_id, custom_clear
+from utiles import closest_id, custom_clear,resolv_equation
 
 from PySide6.QtCore import Signal, Qt
 
@@ -50,6 +48,16 @@ class veget_indices_GPU(QWidget):
         self.plot_button.clicked.connect(self.process_equation)
         layout.addWidget(self.plot_button)
      
+        # Modify Equation button
+        self.mod_eq_button = QPushButton("Modify Equation")
+        self.mod_eq_button.clicked.connect(self.open_equation_editor)
+        layout.addWidget(self.mod_eq_button)
+
+        # New Equation button
+        self.new_eq_button = QPushButton("New Equation")
+        self.new_eq_button.clicked.connect(self.open_new_equation)
+        layout.addWidget(self.new_eq_button)
+
         # Matplotlib Figure and Canvas
         self.axs=[None]
         self.figure, self.axs[0] = plt.subplots(1, 1, figsize=(5, 5))
@@ -78,12 +86,12 @@ class veget_indices_GPU(QWidget):
         self.SceneCanvas.events.mouse_press.connect(self.on_mouse_click)
 
        
-
     def populate_drop_down(self):
         """Reads the file, populates the dropdown, and adds tooltips."""
         file_path = "equations.txt"
         if file_path:
             self.dropdown.clear()  # Clear previous options
+            self.equation_dict = {}
             with open(file_path, "r") as file:
                 for line in file:
                     # Split each line into name and equation
@@ -92,50 +100,49 @@ class veget_indices_GPU(QWidget):
                         name, equation = parts[0].strip(), parts[1].strip()
                         self.dropdown.addItem(name)  # Show only the name
                         self.dropdown.setItemData(self.dropdown.count() - 1, equation)  # Store equation as tooltip
+                        self.equation_dict[name] = equation
 
 
-    
+    def open_new_equation(self):
+            editor = NewEquation(self)
+            if editor.exec_():  # If user clicked Save
+                self.populate_drop_down()
+
+
+    def open_equation_editor(self):
+        current_name = self.dropdown.currentText()
+        current_eq = self.dropdown.itemData(self.dropdown.currentIndex())
+        editor = EquationEditor(self, name=current_name, equation=current_eq)
+        
+        if editor.exec_():
+            action = editor.result
+            if action[0] == "save":
+                name, equation = action[1], action[2]
+                self.equation_dict[name] = equation
+            elif action[0] == "delete":
+                name = action[1]
+                if name in self.equation_dict:
+                    del self.equation_dict[name]
+            
+            # Save all equations back to file
+            with open("equations.txt", "w") as file:
+                for name, equation in self.equation_dict.items():
+                    file.write(f"{name}: {equation}\n")
+
+            self.populate_drop_down()
 
 
     def process_equation(self):
         """
         Process the given equation to extract and compute values from hyperspectral data.
-
-        Parameters:
-        - equation (str): The equation string (e.g., "(R2000 + R2200) / 2").
-        - hyperspectral_data (numpy.ndarray): 3D array with shape (height, width, bands).
-        - wavelengths (list): List of wavelengths corresponding to bands in hyperspectral_data.
-
-        
         """
         # equation = self.dropdown.currentText()
+        self.axs[0].clear() 
         selected_index = self.dropdown.currentIndex()  # Get selected index
         equation = self.dropdown.itemData(selected_index)
-        # print(equation)
-        # Extract wavelength values from the equation
-        found_wavelengths = re.findall(r'R(\d+)', equation)
         
-        # Create a dictionary that maps RXXXX to the correct band in hyperspectral data
-        local_dict = {}
-        if len(found_wavelengths)==0:
-            print("wl not found in the equation text")
-            return -2
-        self.axs[0].clear() 
-        for wl in found_wavelengths:
-            wl = int(wl)
-            band_index = closest_id(wl,self.wavelengths,accuracy=2)
-            if band_index is None:
-                print("wl value not found")
-                return -1
-            data = self.data_img[:,:,band_index]
-            local_dict[f'R{int(wl)}'] = np.squeeze(data)
-        # Evaluate the equation safely
-        local_dict['sqrt'] = sqrt
-        local_dict['abs'] = abs
-        try:
-            result = eval(equation, {"__builtins__": {}} , local_dict) 
-        except Exception as e:
-            raise ValueError(f"Error evaluating equation: {e}")
+        
+        result = resolv_equation(equation,self.data_img,self.wavelengths)
         self.axs[0].imshow(result,cmap='nipy_spectral')
         self.plot_3D(result)
         return 
@@ -181,20 +188,16 @@ class veget_indices_GPU(QWidget):
         if hasattr(self, "ax_list") and self.ax_list is not None:
             for axis in self.ax_list:
                 axis.parent = None  # Reset reference
-
-
         # Create X, Y, Z axes
         shape = self.data_img.shape
         x_axis = scene.Axis(pos=[[-1, 0], [shape[1], 0]], tick_direction=(100, -100), axis_color="red", tick_color="red")
         y_axis = scene.Axis(pos=[[0, 1], [0, -shape[0]]], tick_direction=(-100, 100), axis_color="green", tick_color="green")
-        # z_axis = scene.Axis(pos=[[result.min(), 0], [result.max(), 0]], tick_direction=(0, -1), axis_color="blue", tick_color="blue")
         z_axis = scene.Axis(pos=[[0, 0], [100, 0]], tick_direction=(0, -1), axis_color="blue", tick_color="blue")
 
         z_axis.transform = scene.transforms.MatrixTransform()  # its acutally an inverted xaxis
         z_axis.transform.rotate(-90, (0, 1, 0))  # rotate cw around yaxis
         self.ax_list = (x_axis, y_axis, z_axis)
         for axis in self.ax_list:
-            # axis.transform = scene.STTransform(scale=(1, 1, 1))  # Scale appropriately
             self.view.add(axis)  # Add to scene
 
 
@@ -205,10 +208,9 @@ class veget_indices_GPU(QWidget):
             picked = self.view.scene.node_transform(self.mesh).map(pos)  # Map to scene coords
             if picked is not None:
                 self.view.camera.center = (picked[:3][0],-picked[:3][1],0 ) # Move camera to the clicked point
-                print(f"Centered on: {picked[:3]}")  # Debugging
 
 
-    def load(self, file_path, wavelenght, data_img):
+    def load_file(self, file_path, wavelenght, data_img):
         self.variable_init() # Clear all variables
         # Load the image and wavelengths
         self.file_path = file_path
@@ -228,8 +230,6 @@ class veget_indices_GPU(QWidget):
             # print(f"RGB : {R}, {G}, {B}")
             # print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
             RGB_img = self.data_img[:,:,(R,G,B)]
-
-
             if RGB_img.max()*2 < 1:
                 try:
                     RGB_img = 2*RGB_img.view(np.ndarray)
@@ -239,6 +239,107 @@ class veget_indices_GPU(QWidget):
         else:
             print("RGB values not supported")
         self.canvas.draw()
+
+
+
+
+
+
+
+
+
+
+
+
+
+class EquationEditor(QDialog):
+    def __init__(self, parent=None, name="", equation=""):
+        super().__init__(parent)
+        self.setWindowTitle("Equation Editor")
+        self.name = name  # Store original name
+
+        self.name_label = QLabel("Name:")
+        self.name_input = QLineEdit()
+        self.name_input.setText(name)
+
+        self.eq_label = QLabel("Equation:")
+        self.eq_input = QTextEdit()
+        self.eq_input.setText(equation)
+
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save_equation)
+
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.clicked.connect(self.delete_equation)
+        self.delete_button.setStyleSheet("color: red;")
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.name_label)
+        layout.addWidget(self.name_input)
+        layout.addWidget(self.eq_label)
+        layout.addWidget(self.eq_input)
+        layout.addWidget(self.save_button)
+        if name:  # Only show delete for existing equations
+            layout.addWidget(self.delete_button)
+
+        self.setLayout(layout)
+
+        self.result = None  # Will store result status
+
+    def save_equation(self):
+        name = self.name_input.text().strip()
+        equation = self.eq_input.toPlainText().strip()
+        if name and equation:
+            self.result = ("save", name, equation)
+            self.accept()
+        else:
+            self.setWindowTitle("Please fill in both fields.")
+
+    def delete_equation(self):
+        self.result = ("delete", self.name)
+        self.accept()
+
+
+
+
+
+class NewEquation(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Create or Edit Equation")
+
+        self.name_label = QLabel("Name:")
+        self.name_input = QLineEdit()
+
+        self.eq_label = QLabel("Equation:")
+        self.eq_input = QTextEdit()
+
+        self.save_button = QPushButton("Save")
+        self.save_button.clicked.connect(self.save_equation)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.name_label)
+        layout.addWidget(self.name_input)
+        layout.addWidget(self.eq_label)
+        layout.addWidget(self.eq_input)
+        layout.addWidget(self.save_button)
+
+        self.setLayout(layout)
+
+    def save_equation(self):
+        name = self.name_input.text().strip()
+        equation = self.eq_input.toPlainText().strip()
+
+        if name and equation:
+            with open("equations.txt", "a") as file:
+                file.write(f"{name}: {equation}\n")
+            self.accept()  # Close the dialog
+        else:
+            self.setWindowTitle("Please fill in both fields.")
+
+
+
+
 
 
 
@@ -276,7 +377,7 @@ class MyWindow(QMainWindow):
         self.wavelengths = [float(i) for i in self.wavelengths]
         self.setCentralWidget(self.widget)
 
-        self.resized.connect(lambda : self.widget.load(self.file_path, self.wavelengths, self.data_img))
+        self.resized.connect(lambda : self.widget.load_file(self.file_path, self.wavelengths, self.data_img))
 
 
 

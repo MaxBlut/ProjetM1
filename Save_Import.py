@@ -130,10 +130,11 @@ class Save_import(QWidget):
         pdf_canvas.save()
         print(f"PDF enregistré à : {file_path}")
 
+
     def import_file(self):
         options = QFileDialog.Options()
         self.file_path_noload, _ = QFileDialog.getOpenFileName(
-            self, "Importer un fichier", "", "Tous les fichiers (*);;Fichiers texte (*.txt)", options=options)
+            self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)", options=options)
 
         if not self.file_path_noload:  # Vérifie si un fichier a été sélectionné
             print("Aucun fichier sélectionné.")
@@ -153,7 +154,8 @@ class Save_import(QWidget):
             self.wavelength = self.img.metadata['wavelength']
         elif "Wavelength" in self.img.metadata:
             self.wavelength = self.img.metadata['Wavelength']
-    
+        self.wavelength = [float(i) for i in self.wavelength]
+
     def get_fichier(self):
         if self.file_path_noload is None:
             return None

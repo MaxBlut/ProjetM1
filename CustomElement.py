@@ -50,6 +50,15 @@ class CustomQRangeSlider(QRangeSlider):
 
 
 
+
+
+
+
+
+
+
+
+
 class CustomWidgetRangeSlider(QWidget):
     def __init__(self,parent=None):
         super().__init__(parent)
@@ -117,6 +126,13 @@ class CommentButton(QWidget):
 
 
 
+
+
+
+
+
+
+
 class CustomToolbar(NavigationToolbar):
     """Custom Matplotlib Toolbar with Two Toggle Buttons (Can Be Unchecked)"""
     def __init__(self, canvas, parent=None):
@@ -168,7 +184,6 @@ class CustomToolbar(NavigationToolbar):
 
         if self.edit_axes_action:
             self.edit_axes_action.triggered.connect(self.hook_edit_axis_dialog)
-
 
 
     def open_merge_window(self):
