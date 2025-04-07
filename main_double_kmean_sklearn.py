@@ -104,6 +104,7 @@ class KMeansApp(QWidget):
         self.n_iterations_input.textChanged.connect(self.set_param_has_changed)  
         
         # Connect buttons
+        self.btn_show_image.clicked.connect(self.show_image)
         self.btn_first_kmean.clicked.connect(self.apply_first_kmean)
         self.btn_second_kmean.clicked.connect(self.apply_second_kmean)
         self.btn_spectra.clicked.connect(self.display_spectra)
@@ -223,40 +224,18 @@ class KMeansApp(QWidget):
         self.canvas.draw("legend")
 
 
-    def load_file(self, file_path, wavelenght, data_img):
+    def load_file(self, file_path, wavelenghts, data_img):
         self.variable_init() # Clear all variables
         # Load the image and wavelengths
         self.file_path = file_path
-        self.wavelengths = wavelenght
+        self.wavelengths = wavelenghts
         self.data_img = data_img
         self.croped_wavelength = self.wavelengths
 
         self.wl_min_cursor =self.wavelengths[0]
         self.wl_max_cursor =self.wavelengths[-1]
         self.slider_widget.setWavelenghts(self.wavelengths)
-        # Clear the axes
-        custom_clear(self.axs[0])
-        custom_clear(self.axs[1])
-        WL_MIN = wavelenght[0]
-        # Display the image
-        if WL_MIN <= 450:
-            R = closest_id(700, wavelenght)
-            G = closest_id(550, wavelenght)       
-            B = closest_id(450, wavelenght)
-            # print(f"RGB : {R}, {G}, {B}")
-            # print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
-            RGB_img = self.data_img[:,:,(R,G,B)]
-
-
-            if RGB_img.max()*2 < 1:
-                try:
-                    RGB_img = 2*RGB_img.view(np.ndarray) # augmente la luminosité de l'image
-                except ValueError:
-                    pass
-            self.axs[0].imshow(RGB_img)
-        else:
-            print("RGB values not supported")
-        self.canvas.draw()
+        self.show_image()
 
 
     def keyPressEvent(self, event):
@@ -264,6 +243,32 @@ class KMeansApp(QWidget):
             self.toolbar.plot_overlay()
         else:
             super().keyPressEvent(event)
+
+    
+    def show_image(self):
+        print("show image")
+        # Clear the axes
+        custom_clear(self.axs[0])
+        custom_clear(self.axs[1])
+        if self.data_img is not None:
+            WL_MIN = self.wavelengths[0]
+            # Display the image
+            if WL_MIN <= 450:
+                R = closest_id(700, self.wavelengths)
+                G = closest_id(550, self.wavelengths)       
+                B = closest_id(450, self.wavelengths)
+                # print(f"RGB : {R}, {G}, {B}")
+                # print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
+                RGB_img = self.data_img[:,:,(R,G,B)]                
+                if RGB_img.max()*2 < 1:
+                    try:
+                        RGB_img = 2*RGB_img.view(np.ndarray) # augmente la luminosité de l'image
+                    except ValueError:
+                        pass
+                self.axs[0].imshow(RGB_img)
+            else:
+                print("RGB values not supported")
+            self.canvas.draw()
 
 
 
