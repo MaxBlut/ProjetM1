@@ -25,7 +25,6 @@ class Trois_Slider(QWidget):
         self.file_path = None
         self.img_data = None
         self.wavelength = None
-        self.setStyleSheet("background-color: #2E2E2E;")
         
         self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2,figsize=(15, 10), gridspec_kw={'width_ratios': [3, 2]})
         self.canvas = FigureCanvas(self.figure)
@@ -37,7 +36,6 @@ class Trois_Slider(QWidget):
         self.canvas.mpl_connect('button_press_event', self.on_click)
 
         toolbar = NavigationToolbar(self.canvas, self)
-        toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
         for action in toolbar.actions():
             if action.text() in ["Home", "Customize"]:
                 toolbar.removeAction(action)
@@ -70,71 +68,28 @@ class Trois_Slider(QWidget):
         self.slid_b.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
         #self.slid_b.sliderReleased.connect(self.update_spectrum)
 
-        # StyleSheet=("""
-        #     QSlider::groove:horizontal {
-        #         border: 1px solid #bbb;
-        #         background: #ddd;
-        #         height: 8px;
-        #         border-radius: 4px;
-        #     }
-
-        #     QSlider::handle:horizontal {
-        #         background: #0078D7; /* Bleu Windows */
-        #         border: 1px solid #005A9E;
-        #         width: 18px;
-        #         height: 18px;
-        #         margin: -5px 0;
-        #         border-radius: 9px;
-        #     }
-
-        #     QSlider::handle:horizontal:hover {
-        #         background: #005A9E; /* Bleu foncé au survol */
-        #     }
-        # """)
-        # self.slid_r.setStyleSheet(StyleSheet)
-        # self.slid_g.setStyleSheet(StyleSheet)
-        # self.slid_b.setStyleSheet(StyleSheet)
 
 
         self.comment = CommentButton()
 
-
-        # self.import_button.setStyleSheet("""
-        #     QPushButton {
-        #         background-color: #3A3A3A;
-        #         color: white;
-        #         font-size: 14px;
-        #         border: 1px solid #555;
-        #         border-radius: 5px;
-        #         padding: 5px;
-        #     }
-        #     QPushButton:hover {
-        #         background-color: #4A4A4A;
-        #     }
-        # """)
 
         # Création des labels
         self.r_label = QLabel("R")
         self.g_label = QLabel("G")
         self.b_label = QLabel("B")
 
-        # Appliquer un style aux labels pour qu'ils soient colorés et lisibles
-        self.r_label.setStyleSheet("color: red; font-size: 20px; font-weight: bold;")
-        self.g_label.setStyleSheet("color: green; font-size: 20px; font-weight: bold;")
-        self.b_label.setStyleSheet("color: blue; font-size: 20px; font-weight: bold;")
+
 
         # LABELS AU DSSUS --------------------------------
         self.value_r = QLabel(" veuillez analyser le fichier")
         self.value_r.setAlignment(Qt.AlignCenter)
-        self.value_r.setStyleSheet("color: white; font-size: 16px;")
 
         self.value_g = QLabel("")
         self.value_g.setAlignment(Qt.AlignCenter)
-        self.value_g.setStyleSheet("color: white; font-size: 16px;")
 
         self.value_b = QLabel("")
         self.value_b.setAlignment(Qt.AlignCenter)
-        self.value_b.setStyleSheet("color: white; font-size: 16px;")
+
 
         # ------ LAYOUT ------
         self.r_slidtex = QVBoxLayout()
@@ -172,7 +127,6 @@ class Trois_Slider(QWidget):
         font = QFont("Verdana", 20, QFont.Bold)
         self.label = QLabel("Choisir des longueurs d'onde pour les canaux R, G, B")
         self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("color: white; font-size: 30px;")
         self.label.setFont(font)
 
        

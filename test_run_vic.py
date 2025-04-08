@@ -124,12 +124,36 @@ class MainWindow(QMainWindow):
         
 
 
+
+dark_style = """
+    QWidget {
+        background-color: #2b2b2b;
+        color: #f0f0f0;
+    }
+    QPushButton {
+        background-color: #3c3f41;
+        border: 1px solid #555;
+        padding: 5px;
+    }
+    QLineEdit {
+        background-color: #444;
+        border: 1px solid #666;
+    }
+"""
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
     app = QApplication.instance()
     if not app:
         app = QApplication(sys.argv)
     print(QStyleFactory.keys())
-    app.setStyle('windows11')  
+    app.setStyleSheet(dark_style)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

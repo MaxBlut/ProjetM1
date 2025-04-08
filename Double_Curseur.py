@@ -25,7 +25,6 @@ class Double_Curseur(QWidget):
         self.file_path = None
         self.wavelength = None
         self.img_data = None
-        # self.setStyleSheet("background-color: #2E2E2E;")
         self.text = "Aucun commentaire effectué"
 
         # Création d'une figure avec 2 axes : 1 pour l'image et 1 pour le spectre
@@ -35,11 +34,9 @@ class Double_Curseur(QWidget):
         self.Img_ax.set_position([0, 0, 0.5, 1])  # Image occupe 60% de la largeur
         self.spectrum_ax.set_position([0.6, 0.1, 0.5, 0.8])  # Augmenter la largeur
         self.figure.tight_layout()  # Applique à toute la figure
-        self.canvas.setStyleSheet("background-color: #2E2E2E;")  # Application d'un fond gris
 
         # Toolbar pour la navigation
         toolbar = NavigationToolbar(self.canvas, self)
-        toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
         for action in toolbar.actions():
             if action.text() in ["Home", "Customize"]:
                 toolbar.removeAction(action)
@@ -57,21 +54,10 @@ class Double_Curseur(QWidget):
         self.slider_widget.range_slider.sliderReleased.connect(self.update_image)
         self.slider_widget.range_slider.sliderReleased.connect(self.update_spectre)
         self.slider_widget.range_slider.valueChanged.connect(self.slider_widget.update_label)
-
-        # Bouton pour importer le fichier
-        # self.import_button = QPushButton("Analyser")
-        # self.import_button.clicked.connect(self.import_file)
-        # self.fichier_selec = QLabel("Aucun fichier sélectionné")
-        # save_import.signals.fichier_importe.connect(self.update_file)
-
       
         # Layout pour les sliders et le bouton d'importation
         import_layout = QHBoxLayout()
-        # import_layout.addWidget(self.import_button)
-        # import_layout.addWidget(self.fichier_selec)
-        # import_layout.addWidget(self.comment)
-        # import_layout.setAlignment(self.comment, Qt.AlignRight)
-        
+
         img_layout = QVBoxLayout()
         img_layout.addWidget(self.button_com)
         img_layout.addLayout(import_layout)
