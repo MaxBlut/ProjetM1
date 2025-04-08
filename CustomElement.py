@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QHBoxLayout,QWidget,QFileDialog,QMainWindow, QInputDialog
+from PySide6.QtWidgets import QToolButton,QVBoxLayout,QLabel,QComboBox,QPushButton, QDialog,QApplication,QDialogButtonBox,QHBoxLayout,QWidget, QInputDialog, QLineEdit, QTextEdit 
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import Signal
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -15,11 +15,10 @@ sp.settings.envi_support_nonlowercase_params = True
 from matplotlib.legend import Legend
 from matplotlib.patches import Patch
 
-from utiles import mean_spectre_of_cluster, set_legend, get_legend, custom_clear
+from utiles import mean_spectre_of_cluster, set_legend, get_legend
 
 from superqt import QRangeSlider
 
-from time import time
 
 
 
@@ -101,11 +100,17 @@ class CustomWidgetRangeSlider(QWidget):
         self.setRange(self.wavelenghts) #update the range
         self.range_slider.setValue((0,len(wavelenghts)-1))
 
+
+    
+
+
+
+
 class CommentButton(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent	
-        self.comment_text = ""  # Stocker le commentaire
+        self.comment_text = None  # Stocker le commentaire
 
         self.comment = QPushButton("Commenter pour sauvegarde")
         self.comment.clicked.connect(self.commenter)
@@ -114,14 +119,48 @@ class CommentButton(QWidget):
         layout.addWidget(self.comment)
         self.setLayout(layout)
 
+
     def commenter(self):
-        text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire pour la sauvegarde globale", "Entrez votre commentaire :")
-        if ok and text:
-            self.parent.text = text  # Stocker le texte dans l'attribut
-            print(f"Commentaire ajouté : {text}")  # Debug
+        """Opens a dialog enter a comment"""
+        self.com_dialog = QDialog(self.parent)
+        self.com_dialog.setWindowTitle("Ajouter un commentaire pour la sauvegarde globale")
+        layout = QVBoxLayout()
+
+        # Labels
+        layout.addWidget(QLabel("Entrez votre commentaire :"))
+
+        # text edit
+        self.text_box = QTextEdit ()
+        self.text_box.setText(self.comment_text)
+        self.text_box.setFixedSize(200, 80)
+        self.text_box.setLineWrapMode(QTextEdit.WidgetWidth)
+        layout.addWidget(self.text_box)
+
+
+        buttons_layout = QHBoxLayout()
+
+        ok_button = QPushButton("ok")
+        ok_button.clicked.connect(self.set_comment)
+        buttons_layout.addWidget(ok_button)
+
+        cancel_button = QPushButton("cancel")
+        cancel_button.clicked.connect(lambda: self.com_dialog.close())
+        buttons_layout.addWidget(cancel_button)
+
+        layout.addLayout(buttons_layout)
+
+        self.com_dialog.setLayout(layout)
+        self.com_dialog.exec_()
+
+
+    def set_comment(self):
+        self.comment_text = self.text_box.toPlainText() # Stocker le texte dans l'attribut
+        self.com_dialog.accept()
+
 
     def get_comment(self):
         return self.comment_text  # Getter pour récupérer le commentaire
+
 
 
 
@@ -538,70 +577,3 @@ class CustomCanvas(FigureCanvas):
 
 
 
-
-
-
-
-
-class hyperspectral_appli(QWidget):
-
-    def display_image(self):
-        if self.data_img is not None:
-            custom_clear(self.axs[0])
-            if self.WL_MIN <= 450:
-                R = round((700-self.WL_MIN)/2) 
-                G = round((550-self.WL_MIN)/2)        #to do : modifier le calcule d'indice pour ne plus avoir a diviser par deux 
-                B = round((450-self.WL_MIN)/2)
-                RGB_img = self.data_img[:,:,(R,G,B)]
-
-                if RGB_img.max()*2 < 1:
-                    try:
-                        RGB_img = 2*RGB_img.view(np.ndarray)
-                    except ValueError:
-                        pass
-                self.axs[0].imshow(RGB_img)
-            else:
-                print("RGB values not supported")
-            self.axs[0].axis('off')
-            self.axs[0].set_title("hyperspectral image")
-            self.canvas.draw()
-    
-
-    def load_file(self):
-        """charge le fichié selectionné par l'utilisateur """
-        
-        self.variable_init()
-        self.file_path, _ = QFileDialog.getOpenFileName(self, "Sélectionner un fichier HDR", "", "HDR Files (*.hdr)")
-        if self.file_path:
-            if hasattr(self, "file_label"):
-                self.file_label.setText(f"Fichier : {self.file_path}")
-            self.extract_hdr_info()
-            # print(self.file_path, " selected")
-        for ax in self.axs:
-            custom_clear(ax)
-        # self.axs[1].set_title("spectrum")
-        self.display_image()
-        if hasattr(self, "slider_widget"):
-            self.slider_widget.setWavelenghts(self.original_wavelengths)
-        self.canvas.draw()
-    
-    
-    def extract_hdr_info(self):
-        """Extract wlMin, wlMax and the wavelength list from an ENVI header file."""
-        img = sp.open_image(self.file_path)
-        self.data_img = img.load()
-
-        if 'wavelength' in img.metadata:
-            self.original_wavelengths = img.metadata['wavelength']
-        elif "Wavelength" in img.metadata:
-            self.original_wavelengths = img.metadata['Wavelength']
-        else:
-            print("wavelength metadata not found")
-            return
-        # print("metadata found")
-        self.original_wavelengths = [float(i) for i in self.original_wavelengths]
-            
-        self.croped_wavelength = self.original_wavelengths
-        self.wl_max_cursor = self.croped_wavelength[-1]
-        self.wl_min_cursor = self.croped_wavelength[0]
-        self.WL_MIN = self.wl_min_cursor

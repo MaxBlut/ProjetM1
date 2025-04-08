@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QHBoxLayout, QTabWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QHBoxLayout, QTabWidget, QStyleFactory
 
 
 from Save_Import import Save_import
@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
         self.showMaximized()
         self.save_import = Save_import()
         initial_image = np.zeros((100, 100, 3), dtype=np.uint8)  # Image en couleur par défaut
-        # self.matplotlib_widget_gris = MatplotlibImage_Gris(initial_image)
+
         self.save_import.matplotlib_widgets = []
         self.matplotlib_widget_rgb = Image_Mode_Slider(initial_image)
         self.save_import.matplotlib_widgets.append(self.matplotlib_widget_rgb)
@@ -41,13 +41,6 @@ class MainWindow(QMainWindow):
         self.save_import.matplotlib_widgets.append(self.widget_KMeansApp)
 
 
-
-        # for dialog in QApplication.instance().topLevelWidgets():
-        #     if isinstance(dialog, QMainWindow):
-        #         print(dialog)
-        
-
-
         self.tabs = QTabWidget()
         self.tab1 = QWidget()
         self.tab2 = QWidget()
@@ -65,19 +58,19 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab6, "Indices")
         self.tabs.addTab(self.tab7, "Kmean")
 
-        self.tabs.setStyleSheet("""
-            QTabBar::tab {
-                color: white;
-                font-family: 'Verdana';
-                font-size: 14px;
-                padding: 8px; 
-                border-radius: 5px;
-            }
-            QTabBar::tab:selected {
-                background: #4A4A4A;  /* Gris encore un peu plus clair pour l'onglet actif */
-                font-weight: bold;
-            }
-        """)        
+        # self.tabs.setStyleSheet("""
+        #     QTabBar::tab {
+        #         color: white;
+        #         font-family: 'Verdana';
+        #         font-size: 14px;
+        #         padding: 8px; 
+        #         border-radius: 5px;
+        #     }
+        #     QTabBar::tab:selected {
+        #         background: #4A4A4A;  /* Gris encore un peu plus clair pour l'onglet actif */
+        #         font-weight: bold;
+        #     }
+        # """)        
 
         self.save_import.import_button.clicked.connect(self.loading_file)
 
@@ -135,6 +128,8 @@ if __name__ == "__main__":
     app = QApplication.instance()
     if not app:
         app = QApplication(sys.argv)
+    print(QStyleFactory.keys())
+    app.setStyle('windows11')  
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

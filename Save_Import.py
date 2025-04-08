@@ -30,45 +30,17 @@ class Save_import(QWidget):
         self.import_button = QPushButton("Importer fichier")
         self.import_button.clicked.connect(self.import_file)
         self.fichier_selec = QLabel("Aucun fichier sélectionné")
-        self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
-        self.import_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3A3A3A;
-                color: white;
-                font-size: 14px;
-                border: 1px solid #555;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #4A4A4A;
-            }
-        """)
 
         self.text_edit = QTextEdit()
         self.text_edit.setPlaceholderText("Écrivez ici une description ou un commentaire...")
-        self.text_edit.setStyleSheet("background-color: #3A3A3A; color: white; font-size: 14px; padding: 5px; border-radius : 5px")
         self.file_path = None
-        self.setStyleSheet("background-color: #2E2E2E;")
 
         self.save_button = QPushButton("Sauvegarder")
         self.save_button.clicked.connect(self.save_all_as_pdf)
 
         self.save_button.setMinimumWidth(200)
         self.save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.save_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3A3A3A;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 10px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #4A4A4A;
-            }
-        """)
+        
 
         import_layout = QHBoxLayout()
         import_layout.addStretch()  # Ajoute un espace flexible en haut
@@ -118,7 +90,7 @@ class Save_import(QWidget):
                 x_offset = (page_width - new_width) / 2
                 y_offset = page_height - new_height - 50
                 pdf_canvas.drawImage(temp_img_path, x_offset, y_offset, width=new_width, height=new_height)
-                 # Ajouter le commentaire sous l'image
+                # Ajouter le commentaire sous l'image
                 pdf_canvas.setFont("Helvetica", 12)
                 y_pos = y_offset - 20
                 for line in commentaires[i].split("\n"):
@@ -143,10 +115,7 @@ class Save_import(QWidget):
         QApplication.processEvents() 
 
         self.fichier_selec.setText(os.path.basename(self.file_path_noload))  # Afficher le chemin dans l'UI
-        # self.signals.fichier_importe.emit(self.file_path_noload)  # Émet le signal avec le chemin du fichier
-        print("Signal émis")
 
-        # self.img = sp.open_image(os.path.basename(self.file_path_noload))
         self.img = sp.open_image(self.file_path_noload)
 
         self.data_img = self.img.load()  # Charger en tant que tableau NumPy

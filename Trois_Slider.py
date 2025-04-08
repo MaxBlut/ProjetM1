@@ -7,7 +7,7 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtGui import QFont, QMovie
 from superqt import QRangeSlider
-from CustomElement import CustomWidgetRangeSlider
+from CustomElement import CustomWidgetRangeSlider, CommentButton
 
 import os
 import spectral as sp
@@ -25,7 +25,6 @@ class Trois_Slider(QWidget):
         self.file_path = None
         self.img_data = None
         self.wavelength = None
-        self.text = "Aucun commentaire effectué"
         self.setStyleSheet("background-color: #2E2E2E;")
         
         self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2,figsize=(15, 10), gridspec_kw={'width_ratios': [3, 2]})
@@ -36,8 +35,6 @@ class Trois_Slider(QWidget):
         self.Img_ax.set_position([0, 0, 0.6, 1])  # Image sur 60% de la largeur
         self.spectrum_ax.set_position([0.65, 0.1, 0.35, 0.8])  # Spectre sur 40% avec un petit décalage
         self.canvas.mpl_connect('button_press_event', self.on_click)
-
-
 
         toolbar = NavigationToolbar(self.canvas, self)
         toolbar.setStyleSheet("background-color: #AAB7B8; color: white; border-radius: 5px;")
@@ -73,39 +70,34 @@ class Trois_Slider(QWidget):
         self.slid_b.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
         #self.slid_b.sliderReleased.connect(self.update_spectrum)
 
-        StyleSheet=("""
-    QSlider::groove:horizontal {
-        border: 1px solid #bbb;
-        background: #ddd;
-        height: 8px;
-        border-radius: 4px;
-    }
+        # StyleSheet=("""
+        #     QSlider::groove:horizontal {
+        #         border: 1px solid #bbb;
+        #         background: #ddd;
+        #         height: 8px;
+        #         border-radius: 4px;
+        #     }
 
-    QSlider::handle:horizontal {
-        background: #0078D7; /* Bleu Windows */
-        border: 1px solid #005A9E;
-        width: 18px;
-        height: 18px;
-        margin: -5px 0;
-        border-radius: 9px;
-    }
+        #     QSlider::handle:horizontal {
+        #         background: #0078D7; /* Bleu Windows */
+        #         border: 1px solid #005A9E;
+        #         width: 18px;
+        #         height: 18px;
+        #         margin: -5px 0;
+        #         border-radius: 9px;
+        #     }
 
-    QSlider::handle:horizontal:hover {
-        background: #005A9E; /* Bleu foncé au survol */
-    }
-""")
-        self.slid_r.setStyleSheet(StyleSheet)
-        self.slid_g.setStyleSheet(StyleSheet)
-        self.slid_b.setStyleSheet(StyleSheet)
+        #     QSlider::handle:horizontal:hover {
+        #         background: #005A9E; /* Bleu foncé au survol */
+        #     }
+        # """)
+        # self.slid_r.setStyleSheet(StyleSheet)
+        # self.slid_g.setStyleSheet(StyleSheet)
+        # self.slid_b.setStyleSheet(StyleSheet)
 
-        #---------------- Bouton "Importer fichier" 
-        # self.import_button = QPushButton("Analyser")
-        # self.import_button.clicked.connect(self.import_file)
-        # self.fichier_selec = QLabel("Aucun fichier sélectionné")
-        # self.fichier_selec.setStyleSheet("color : #D3D3D3; font-size: 15px; font-style: italic;")
 
-        self.comment = QPushButton("Commenter")
-        self.comment.clicked.connect(self.commenter)
+        self.comment = CommentButton()
+
 
         # self.import_button.setStyleSheet("""
         #     QPushButton {
@@ -176,7 +168,7 @@ class Trois_Slider(QWidget):
         slider_layout.addLayout(self.g_layout)
         slider_layout.addLayout(self.b_layout)
 
-        #LABELS---------------------------------------------
+        # LABELS---------------------------------------------
         font = QFont("Verdana", 20, QFont.Bold)
         self.label = QLabel("Choisir des longueurs d'onde pour les canaux R, G, B")
         self.label.setAlignment(Qt.AlignCenter)
@@ -184,8 +176,7 @@ class Trois_Slider(QWidget):
         self.label.setFont(font)
 
        
-        #LAYOUTS---------------------------------
-        # ------------
+        # LAYOUTS---------------------------------------------
         import_layout = QHBoxLayout()
         # import_layout.addWidget(self.import_button)
         # import_layout.addWidget(self.fichier_selec)
@@ -221,9 +212,11 @@ class Trois_Slider(QWidget):
         self.Img_ax.axis('off')
         self.canvas.draw()
 
+
     def update_file(self, path):
         self.file_path = path
         # self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
+
 
     def update_slid_text(self):
         # Récupérer les valeurs des sliders
@@ -330,6 +323,4 @@ class Trois_Slider(QWidget):
         # Mise à jour de l'affichage
         self.update_spectrum(wavelengths, reflectance_values)
 
-    def commenter(self):
-        self.text, ok = QInputDialog.getMultiLineText(self, "Ajouter un commentaire", "commentaire destiné à la sauvegarde globale", "") 
 

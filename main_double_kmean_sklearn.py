@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QLineEdit
 )
 
-from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider, hyperspectral_appli
+from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider
 from utiles import mean_spectre_of_cluster, custom_clear, closest_id
 
 from PySide6.QtCore import Signal, Qt
@@ -126,7 +126,7 @@ class KMeansApp(QWidget):
             self.data_img = sp.open_image(self.file_path).load()[:,:,self.wl_min_cursor:self.wl_max_cursor]
             self.set_param_has_changed()
             self.croped_wavelength = self.wavelengths[self.wl_min_cursor:self.wl_max_cursor]
-            # print("image data cropped between ",self.wavelengths[0]," and ", self.wavelengths[-1])
+            
 
 
 
@@ -140,7 +140,6 @@ class KMeansApp(QWidget):
                 kmeans = MiniBatchKMeans(n_clusters=2, n_init='auto', max_iter=10, random_state=42)
                 labels = kmeans.fit_predict(reshaped_data[:,::10]) # uses a fraction of the bands for clustering to speed up the process
                 self.first_cluster_map = labels.reshape(self.data_img.shape[:-1])
-                print("first kmean executed in:", time()-t1)
                 self.param_has_changed_skm = True       # met la variable a True pour recharger le second Kmean
             custom_clear(self.axs[0])
             self.axs[0].set_title("hyperspectral image")
@@ -204,8 +203,6 @@ class KMeansApp(QWidget):
             return
         if event.inaxes == self.axs[0]:  # Check if click is on the left graph
             x, y = int(event.xdata), int(event.ydata)
-            # print("click event detected in left axs")
-
             # Identify the cluster under the click
             if self.first_cluster_map is not None:
                 if self.first_cluster_map[y, x] != 1:
@@ -246,7 +243,6 @@ class KMeansApp(QWidget):
 
     
     def show_image(self):
-        print("show image")
         # Clear the axes
         custom_clear(self.axs[0])
         custom_clear(self.axs[1])
@@ -257,8 +253,6 @@ class KMeansApp(QWidget):
                 R = closest_id(700, self.wavelengths)
                 G = closest_id(550, self.wavelengths)       
                 B = closest_id(450, self.wavelengths)
-                # print(f"RGB : {R}, {G}, {B}")
-                # print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
                 RGB_img = self.data_img[:,:,(R,G,B)]                
                 if RGB_img.max()*2 < 1:
                     try:

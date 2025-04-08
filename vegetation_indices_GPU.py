@@ -332,7 +332,7 @@ class NewEquation(QDialog):
 
         if name and equation:
             with open("equations.txt", "a") as file:
-                file.write(f"{name}: {equation}\n")
+                file.write(f"{name} : {equation}\n")
             self.accept()  # Close the dialog
         else:
             self.setWindowTitle("Please fill in both fields.")

@@ -10,7 +10,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 
 from utiles import mean_spectre_of_cluster, are_intersecting, custom_clear, closest_id
 
-from CustomElement import CustomCanvas,hyperspectral_appli
+from CustomElement import CustomCanvas
 
 sp.settings.envi_support_nonlowercase_params = True
 
@@ -42,7 +42,6 @@ class MainWindow_draw_cluster(QWidget):
 
     def init_ui(self):
 
-        import_com_layout = QHBoxLayout()
         self.import_button = QPushButton("Importer un fichier")
         layout = QVBoxLayout()
 
@@ -87,6 +86,11 @@ class MainWindow_draw_cluster(QWidget):
 
     def on_click(self, event):
         # Handle mouse click events.
+        if self.data_img is None:
+            return  # Ignore clicks if no image is loaded
+        if event.inaxes == self.axs[1]:  # Check if click is on the right graph
+            return
+
         if hasattr(event, "handled") and event.handled:  # If the event was marked as handled, ignore it
             return
         
