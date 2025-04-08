@@ -11,6 +11,9 @@ from main_dessin_cluster import MainWindow_draw_cluster
 from vegetation_indices_GPU import veget_indices_GPU
 from main_double_kmean_sklearn import KMeansApp
 
+from PySide6.QtGui import QPalette, QColor
+from PySide6.QtCore import Qt
+
 
 
 class MainWindow(QMainWindow):
@@ -58,20 +61,6 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab6, "Indices")
         self.tabs.addTab(self.tab7, "Kmean")
 
-        # self.tabs.setStyleSheet("""
-        #     QTabBar::tab {
-        #         color: white;
-        #         font-family: 'Verdana';
-        #         font-size: 14px;
-        #         padding: 8px; 
-        #         border-radius: 5px;
-        #     }
-        #     QTabBar::tab:selected {
-        #         background: #4A4A4A;  /* Gris encore un peu plus clair pour l'onglet actif */
-        #         font-weight: bold;
-        #     }
-        # """)        
-
         self.save_import.import_button.clicked.connect(self.loading_file)
 
 
@@ -105,17 +94,7 @@ class MainWindow(QMainWindow):
 
 
         self.setCentralWidget(self.tabs)
-        # Global stylesheet
-        self.setStyleSheet("""
-        QWidget {}
-        .MatplotlibImage {
-            background-color: #2E2E2E;  /* Fond gris foncé */
-        }
-        .MatplotlibImage_3slid {
-            background-color: #2E2E2E;  /* Fond gris foncé */
-        }
-        """)
-
+        
 
     def loading_file(self):
         """ Load the file and update the widgets """
@@ -125,25 +104,28 @@ class MainWindow(QMainWindow):
 
 
 
-dark_style = """
-    QWidget {
-        background-color: #2b2b2b;
-        color: #f0f0f0;
-    }
-    QPushButton {
-        background-color: #3c3f41;
-        border: 1px solid #555;
-        padding: 5px;
-    }
-    QLineEdit {
-        background-color: #444;
-        border: 1px solid #666;
-    }
-"""
 
 
+def set_dark_theme(app):
+    dark_palette = QPalette()
 
+    dark_palette.setColor(QPalette.Window, QColor(53, 53, 53))
+    dark_palette.setColor(QPalette.WindowText, Qt.white)
+    dark_palette.setColor(QPalette.Base, QColor(35, 35, 35))
+    dark_palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
+    dark_palette.setColor(QPalette.ToolTipBase, Qt.white)
+    dark_palette.setColor(QPalette.ToolTipText, Qt.white)
+    dark_palette.setColor(QPalette.Text, Qt.white)
+    dark_palette.setColor(QPalette.Button, QColor(53, 53, 53))
+    dark_palette.setColor(QPalette.ButtonText, Qt.white)
+    dark_palette.setColor(QPalette.BrightText, Qt.red)
+    dark_palette.setColor(QPalette.Link, QColor(42, 130, 218))
 
+    dark_palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+    dark_palette.setColor(QPalette.HighlightedText, Qt.black)
+
+    app.setStyle("Fusion")
+    app.setPalette(dark_palette)
 
 
 
@@ -153,7 +135,8 @@ if __name__ == "__main__":
     if not app:
         app = QApplication(sys.argv)
     print(QStyleFactory.keys())
-    app.setStyleSheet(dark_style)
+    set_dark_theme(app)
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
