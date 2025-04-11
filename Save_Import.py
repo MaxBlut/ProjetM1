@@ -1,20 +1,17 @@
-import sys
-import numpy as np
-import matplotlib.pyplot as plt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit, QSplitter, QProgressBar, QCheckBox, QRadioButton, QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QFileDialog, QInputDialog
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
-from PySide6.QtCore import QThread, Signal, QObject
-from PySide6.QtGui import QFont, QMovie
-from superqt import QRangeSlider
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QLabel, QHBoxLayout, QPushButton, QSizePolicy,  QFileDialog, QTextEdit
+from PySide6.QtCore import Signal, QObject
 
 import os
 import spectral as sp
-import time
+
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+
+import io
 from PIL import Image
-from qtpy.QtCore import Qt
+from reportlab.lib.utils import ImageReader
+
+import numpy as np
 
 class Save_import(QWidget):
 
@@ -22,7 +19,7 @@ class Save_import(QWidget):
         super().__init__()
         self.signals = SignalEmitter()  # Signal émis lors de l'importation d'un fichier
         self.matplotlib_widgets = matplotlib_widgets  # Liste de widgets Matplotlib à enregistrer
-
+        
         self.file_path_noload = None
         self.matplotlib_widgets = matplotlib_widgets if matplotlib_widgets is not None else []  
 
@@ -61,46 +58,72 @@ class Save_import(QWidget):
 
 
     def save_all_as_pdf(self):
-
         file_path, _ = QFileDialog.getSaveFileName(self, "Enregistrer sous", "", "Fichier PDF (*.pdf)")
         if not file_path:
             return
 
         # Création d'un seul PDF
         pdf_canvas = canvas.Canvas(file_path, pagesize=A4)
-        page_width, page_height = A4
+        
 
         commentaires = []
-        for i in range(len(self.matplotlib_widgets)) :
-            print(f"Texte du widget {i} : {self.matplotlib_widgets[i].text}")
-            commentaires.append(self.matplotlib_widgets[i].text)
-
+        for widget in self.matplotlib_widgets :
+            if hasattr(widget, 'commentaire') and widget.commentaire:
+                # Vérifier si le widget a bien un attribut 'text'
+                # print(f"Commentaire du widget {widget} : {widget.commentaire}")
+                commentaires.append(widget.commentaire)
+            else:
+                commentaires.append("")
+        # Create an in-memory bytes buffer
+        buf = io.BytesIO()
         for i, widget in enumerate(self.matplotlib_widgets):
+            
+            y_pos = 0
             if hasattr(widget, 'figure'):  # Vérifier si le widget a bien une figure Matplotlib
-                temp_img_path = f"temp_image_{i}.png"  # Nom unique pour chaque figure
-                widget.figure.canvas.draw()  # Forcer le dessin de la figure avant de la sauvegarder
-                widget.figure.savefig(temp_img_path, dpi=300, bbox_inches='tight')
+                buf.seek(0)
+                # Draw the figure and save it to the buffer
+                widget.figure.canvas.draw()
+                widget.figure.savefig(buf, format='png', dpi=300, bbox_inches='tight')
+                y_pos += save_img(buf, pdf_canvas, y_pos)  # Enregistrer l'image dans le PDF
+                
+                
+            if hasattr(widget, 'SceneCanvas') and widget.SceneCanvas:
+                buf.seek(0)
+                # Render the SceneCanvas
+                img_data = widget.SceneCanvas.render()  # shape: (H, W, 4)
+                h, w, _ = img_data.shape
 
-                img = Image.open(temp_img_path)
-                img_width, img_height = img.size
-                scale = min(page_width / img_width, (page_height - 100) / img_height)
-                new_width = img_width * scale
-                new_height = img_height * scale
 
-                x_offset = (page_width - new_width) / 2
-                y_offset = page_height - new_height - 50
-                pdf_canvas.drawImage(temp_img_path, x_offset, y_offset, width=new_width, height=new_height)
-                # Ajouter le commentaire sous l'image
-                pdf_canvas.setFont("Helvetica", 12)
-                y_pos = y_offset - 20
-                for line in commentaires[i].split("\n"):
-                    pdf_canvas.drawString(50, y_pos, line)
-                    y_pos -= 15
+                rgb = img_data[:, :, :3]
+                non_empty_mask = np.any(rgb < 250, axis=2)  # ignore nearly white
 
-                pdf_canvas.showPage()  # Nouvelle page pour chaque image
+                coords = np.argwhere(non_empty_mask)
+                if coords.size == 0:
+                    cropped_img = Image.fromarray(img_data)  # fallback
+                else:
+                    y_min, x_min = coords.min(axis=0)
+                    y_max, x_max = coords.max(axis=0) + 1
+
+                    # Crop using array slicing
+                    cropped_array = img_data[y_min:y_max, x_min:x_max, :]
+                    cropped_img = Image.fromarray(cropped_array.astype(np.uint8))
+
+                print(cropped_img.size)
+                print((h, w))
+                cropped_img.save(buf, format='png')
+                cropped_img.save("scenecanvas.png", format='png')
+                y_pos += save_img(buf, pdf_canvas, y_pos)  # Enregistrer l'image dans le PDF
+
+            for line in commentaires[i].split("\n"):
+                pdf_canvas.drawString(50, y_pos, line)
+                y_pos -= 15
+            pdf_canvas.showPage()  # Nouvelle page pour chaque image
 
         pdf_canvas.save()
         print(f"PDF enregistré à : {file_path}")
+
+
+
 
 
     def import_file(self):
@@ -125,11 +148,33 @@ class Save_import(QWidget):
             self.wavelength = self.img.metadata['Wavelength']
         self.wavelength = [float(i) for i in self.wavelength]
 
-    def get_fichier(self):
-        if self.file_path_noload is None:
-            return None
-        else:
-            return self.file_path_noload
+
+
+
+
+def save_img(buf, pdf_canvas, offstet=0):
+    page_width, page_height = A4
+    # Rewind the buffer's cursor to the beginning
+    buf.seek(0)
+    # Open the image directly from the buffer using PIL
+    img = Image.open(buf)
+    img_width, img_height = img.size
+    # scale = min(page_width / img_width, (page_height - 100) / img_height)
+    scale = page_width / img_width
+    new_width = img_width * scale
+    new_height = img_height * scale
+
+    x_offset = (page_width - new_width) / 2
+    y_offset = page_height - new_height - 50 - offstet
+
+    img_reader = ImageReader(buf)
+    pdf_canvas.drawImage(img_reader, x_offset, y_offset, width=new_width, height=new_height)
+    # Ajouter le commentaire sous l'image
+    pdf_canvas.setFont("Helvetica", 12)
+    y_pos = y_offset - 80
+    return y_pos 
+
+
 
 
 class SignalEmitter(QObject):

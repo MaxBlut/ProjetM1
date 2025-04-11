@@ -1,38 +1,40 @@
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QTabWidget, QPushButton, QComboBox, QSizePolicy,  QFileDialog, QTextEdit, QSplitter, QProgressBar, QCheckBox, QRadioButton, QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QFileDialog, QInputDialog
+from PySide6.QtWidgets import QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
-from PySide6.QtCore import QThread, Signal, QObject
-from PySide6.QtGui import QFont, QMovie
-from superqt import QRangeSlider
-from CustomElement import CustomWidgetRangeSlider, CommentButton
+from PySide6.QtGui import QFont
 
-import os
-import spectral as sp
-import time
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from PIL import Image
+from CustomElement import CommentButton
+
 from qtpy.QtCore import Qt
 
 
 
 class Trois_Slider(QWidget):
-    def __init__(self, RGB_img):
+    def __init__(self):
         super().__init__()
+        self.variable_init()
+        self.ui_init()
+
+
+    def variable_init(self):
         self.file_path = None
         self.img_data = None
         self.wavelength = None
+        self.commentaire = None
+
+
+    def ui_init(self):
         
-        self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2,figsize=(15, 10), gridspec_kw={'width_ratios': [3, 2]})
+        self.figure, (self.Img_ax, self.spectrum_ax) = plt.subplots(1, 2,figsize=(15, 10), gridspec_kw={'width_ratios': [1, 1]})
+        self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
         self.canvas = FigureCanvas(self.figure)
         self.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        self.figure.patch.set_facecolor('#2E2E2E')
 
-        self.Img_ax.set_position([0, 0, 0.6, 1])  # Image sur 60% de la largeur
-        self.spectrum_ax.set_position([0.65, 0.1, 0.35, 0.8])  # Spectre sur 40% avec un petit décalage
+        # self.Img_ax.set_position([0, 0, 0.6, 1])  # Image sur 60% de la largeur
+        self.Img_ax.axis('off')
+        # self.spectrum_ax.set_position([0.65, 0.1, 0.35, 0.8])  # Spectre sur 40% avec un petit décalage
         self.canvas.mpl_connect('button_press_event', self.on_click)
 
         toolbar = NavigationToolbar(self.canvas, self)
@@ -48,7 +50,7 @@ class Trois_Slider(QWidget):
         self.slid_r.setSingleStep(2)
         self.slid_r.valueChanged.connect(self.update_slid_text)
         self.slid_r.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        #self.slid_r.sliderReleased.connect(self.update_spectrum)
+        self.slid_r.actionTriggered.connect(self.handle_slider_action)
 
         self.slid_g = QSlider(Qt.Horizontal)
         self.slid_g.setRange(0,0)
@@ -57,7 +59,7 @@ class Trois_Slider(QWidget):
         self.slid_g.setSingleStep(2)
         self.slid_g.valueChanged.connect(self.update_slid_text)
         self.slid_g.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        #self.slid_g.sliderReleased.connect(self.update_spectrum)
+        self.slid_g.actionTriggered.connect(self.handle_slider_action)
 
         self.slid_b = QSlider(Qt.Horizontal)
         self.slid_b.setRange(0, 0)
@@ -65,12 +67,13 @@ class Trois_Slider(QWidget):
         self.slid_b.setTickInterval(2)
         self.slid_b.setSingleStep(2)
         self.slid_b.valueChanged.connect(self.update_slid_text)
-        self.slid_b.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased
-        #self.slid_b.sliderReleased.connect(self.update_spectrum)
+        self.slid_b.sliderReleased.connect(self.update_image)  # Connecter à sliderReleased$
+        self.slid_b.actionTriggered.connect(self.handle_slider_action)
 
 
 
-        self.comment = CommentButton()
+
+        comment_button = CommentButton(self)
 
 
         # Création des labels
@@ -132,26 +135,24 @@ class Trois_Slider(QWidget):
        
         # LAYOUTS---------------------------------------------
         import_layout = QHBoxLayout()
-        # import_layout.addWidget(self.import_button)
-        # import_layout.addWidget(self.fichier_selec)
-        import_layout.addWidget(self.comment)
-        import_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
+        import_layout.addWidget(toolbar)
+        import_layout.addWidget(comment_button)
+        
 
-        import_layout.setAlignment(self.comment, Qt.AlignRight)
+        import_layout.setAlignment(comment_button, Qt.AlignRight)
 
         img_layout = QVBoxLayout()
         img_layout.addLayout(import_layout)
-        img_layout.addWidget(toolbar)
         img_layout.addWidget(self.canvas)
         img_layout.addLayout(slider_layout)
         img_layout.addWidget(self.label)
         img_layout.setContentsMargins(0, 0, 0, 0)  # Supprime les marges autour du layout
 
-        #Création de l'affichage du spectre
+        # Création de l'affichage du spectre
 
         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)", color='white')
         self.spectrum_ax.set_ylabel("Intensité", color='white')
-        self.spectrum_ax.set_xlim(0, 0)
+        self.spectrum_ax.set_xlim(0, 1)
         self.spectrum_ax.tick_params(axis='x', colors='white')
         self.spectrum_ax.tick_params(axis='y', colors='white')
         # Graphique vide au départ (sans données)
@@ -160,16 +161,7 @@ class Trois_Slider(QWidget):
         self.canvas.draw()
 
         self.figure.tight_layout()
-
         self.setLayout(img_layout)
-        self.Img_ax.imshow(RGB_img)
-        self.Img_ax.axis('off')
-        self.canvas.draw()
-
-
-    def update_file(self, path):
-        self.file_path = path
-        # self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
 
 
     def update_slid_text(self):
@@ -195,9 +187,9 @@ class Trois_Slider(QWidget):
         wl_r = self.slid_r.value()
         wl_g = self.slid_g.value()
         wl_b = self.slid_b.value()
-        title = f"Image reconstituée interpretant la longueur d'onde R comme {self.wavelength[wl_r]} nm, G: {self.wavelength[wl_g]} nm, B: {self.wavelength[wl_b]} nm"
-        self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre
-
+        # title = f"Image reconstituée interpretant la longueur d'onde R comme {self.wavelength[wl_r]} nm, G: {self.wavelength[wl_g]} nm, B: {self.wavelength[wl_b]} nm"
+        # self.Img_ax.set_title(title, fontsize=16, color='white', pad=20)  # Ajoute le titre
+        self.Img_ax.set_title("Image RGB reconstituée")
         self.imgopt.set_data(self.img_data[:, :, (wl_r, wl_g, wl_b)])
         self.canvas.draw_idle()
 
@@ -207,15 +199,7 @@ class Trois_Slider(QWidget):
         self.wavelength = wavelength
         self.file_path = file_path
         self.img_data = data_img
-        # self.fichier_selec.setText("Chargement en cours, veuillez patienter...")  # Afficher le chemin dans l'UI
-        # # Afficher l'animation de chargement
-        # QApplication.processEvents() 
-        
-        # Stopper l'animation après le chargement
-        
-        # self.file_data = sp.open_image(self.file_path)
-        # self.img_data = self.file_data.load()  # Charger en tant que tableau NumPy
-        # self.metadata = self.file_data.metadata  # Récupérer les métadonnées
+
         self.imgopt = self.Img_ax.imshow(self.img_data[:,:,(0,1,2)])
         self.Img_ax.axis('off')
 
@@ -224,16 +208,16 @@ class Trois_Slider(QWidget):
         self.slid_r.setRange(0, len(self.wavelength)-1)
         self.slid_g.setRange(0, len(self.wavelength)-1)
         self.slid_b.setRange(0, len(self.wavelength)-1)
-
-        self.spectrum_ax.set_xlim(float(self.wavelength[0]), float(self.wavelength[-1]))
+        self.update_image()
+        # self.spectrum_ax.set_xlim(float(self.wavelength[0]), float(self.wavelength[-1]))
         self.figure.tight_layout()
 
         self.value_r.setText(" Choisissez une longueur d'onde")
         self.value_g.setText(" ")
         self.value_b.setText(" ")
 
-        # self.fichier_selec.setText(os.path.basename(self.file_path))  # Afficher le chemin dans l'UI
     
+
     def update_spectrum(self,  wavelengths, reflectance_values):
         self.spectrum_ax.clear()
         self.spectrum_ax.set_xlabel("Longueur d'onde (nm)")
@@ -262,7 +246,6 @@ class Trois_Slider(QWidget):
             return
 
         x, y = int(event.xdata), int(event.ydata)
-        print(f"Pixel cliqué : ({x}, {y})")
 
         # Récupération des longueurs d'onde choisies
         wavelengths = [self.wavelength[self.slid_r.value()],self.wavelength[self.slid_g.value()], self.wavelength[self.slid_b.value()]]
@@ -276,5 +259,9 @@ class Trois_Slider(QWidget):
 
         # Mise à jour de l'affichage
         self.update_spectrum(wavelengths, reflectance_values)
+
+    def handle_slider_action(self, action):
+        if action ==3 or action == 4:  # 3 => jump-by-10-ticks right , 4 = jump-by-10-ticks left 
+            self.update_image()
 
 

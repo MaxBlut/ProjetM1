@@ -22,16 +22,15 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Appli curseur")
         self.showMaximized()
         self.save_import = Save_import()
-        initial_image = np.zeros((100, 100, 3), dtype=np.uint8)  # Image en couleur par défaut
 
         self.save_import.matplotlib_widgets = []
-        self.matplotlib_widget_rgb = Image_Mode_Slider(initial_image)
+        self.matplotlib_widget_rgb = Image_Mode_Slider()
         self.save_import.matplotlib_widgets.append(self.matplotlib_widget_rgb)
 
-        self.matplotlib_widget_double = Double_Curseur(initial_image)
+        self.matplotlib_widget_double = Double_Curseur()
         self.save_import.matplotlib_widgets.append(self.matplotlib_widget_double)
 
-        self.matplotlib_widget_3slid = Trois_Slider(initial_image)
+        self.matplotlib_widget_3slid = Trois_Slider()
         self.save_import.matplotlib_widgets.append(self.matplotlib_widget_3slid)
 
         self.widget_drawcluster = MainWindow_draw_cluster()
@@ -92,7 +91,6 @@ class MainWindow(QMainWindow):
         layout7.addWidget(self.widget_KMeansApp)
         self.tab7.setLayout(layout7)
 
-
         self.setCentralWidget(self.tabs)
         
 
@@ -134,7 +132,7 @@ if __name__ == "__main__":
     app = QApplication.instance()
     if not app:
         app = QApplication(sys.argv)
-    print(QStyleFactory.keys())
+    # print(QStyleFactory.keys())
     set_dark_theme(app)
 
     window = MainWindow()

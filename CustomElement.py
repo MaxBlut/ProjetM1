@@ -110,7 +110,6 @@ class CommentButton(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent	
-        self.comment_text = None  # Stocker le commentaire
 
         self.comment = QPushButton("Commenter pour sauvegarde")
         self.comment.clicked.connect(self.commenter)
@@ -131,7 +130,9 @@ class CommentButton(QWidget):
 
         # text edit
         self.text_box = QTextEdit ()
-        self.text_box.setText(self.comment_text)
+        if hasattr(self.parent, "commentaire") and self.parent.commentaire is not None:
+            self.text_box.setText(self.parent.commentaire)
+        
         self.text_box.setFixedSize(200, 80)
         self.text_box.setLineWrapMode(QTextEdit.WidgetWidth)
         layout.addWidget(self.text_box)
@@ -154,12 +155,9 @@ class CommentButton(QWidget):
 
 
     def set_comment(self):
-        self.comment_text = self.text_box.toPlainText() # Stocker le texte dans l'attribut
+        self.parent.commentaire = self.text_box.toPlainText() # Stocker le texte dans l'attribut
         self.com_dialog.accept()
 
-
-    def get_comment(self):
-        return self.comment_text  # Getter pour récupérer le commentaire
 
 
 
@@ -262,7 +260,6 @@ class CustomToolbar(NavigationToolbar):
 
     def hook_edit_axis_dialog(self):
         """Hooks into the Edit Axis dialog and connects the Apply button to update the legend."""
-        # print("Edit Axis dialog opened!")
         # Ensure Matplotlib has updated before searching for the dialog
         self.parent.canvas.draw_idle()
         # Loop through all open dialogs

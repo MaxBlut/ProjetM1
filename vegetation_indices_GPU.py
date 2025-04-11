@@ -6,15 +6,16 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
+from CustomElement import CommentButton
 import numpy as np
 
 
 from utiles import closest_id, custom_clear,resolv_equation
 
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal
 
 from vispy import scene
-from vispy.scene import visuals, transforms
+from vispy.scene import visuals
 
 
 class veget_indices_GPU(QWidget):
@@ -24,6 +25,7 @@ class veget_indices_GPU(QWidget):
         self.variable_init()
         self.init_ui()
 
+
     def variable_init(self):
         self.wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
         self.wl_min_cursor = None       # l'indice de longueur d'onde min du slider
@@ -32,13 +34,44 @@ class veget_indices_GPU(QWidget):
         self.file_path = None
         self.high_res = None
         self.low_res = None
+        self.commentaire = None
+
 
     def init_ui(self):
         
         # Layouts
         layout = QVBoxLayout()
         figure_layout = QHBoxLayout()
+        button_layout =  QHBoxLayout()
+        toolbar_layout =  QHBoxLayout()
 
+        # Matplotlib Figure and Canvas
+        self.axs=[None]
+        self.figure, self.axs[0] = plt.subplots(1, 1)
+        self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
+        # self.figure.tight_layout()  # Applique à toute la figure
+        self.canvas = FigureCanvas(self.figure)
+        figure_layout.addWidget(self.canvas,1)
+
+        # toolbar
+        toolbar = NavigationToolbar(self.canvas, self)
+        toolbar_layout.addWidget(toolbar)
+
+        # Comment button
+        button_com = CommentButton(self)
+        toolbar_layout.addWidget(button_com)
+        layout.addLayout(toolbar_layout)
+
+        # Create a VisPy canvas (GPU-rendered)
+        self.SceneCanvas = scene.SceneCanvas(keys='interactive', bgcolor='white')
+        figure_layout.addWidget(self.SceneCanvas.native,1)
+        layout.addLayout(figure_layout,1)
+
+        # Create a 3D view
+        self.view = self.SceneCanvas.central_widget.add_view()
+        self.view.camera = 'turntable'  # Interactive 3D rotation
+        self.view.camera.scale_factor = 600
+        
         # Dropdown menu (ComboBox)
         self.dropdown = QComboBox()
         layout.addWidget(self.dropdown)
@@ -46,38 +79,19 @@ class veget_indices_GPU(QWidget):
         # Plot button
         self.plot_button = QPushButton("Plot")
         self.plot_button.clicked.connect(self.process_equation)
-        layout.addWidget(self.plot_button)
+        button_layout.addWidget(self.plot_button)
      
         # Modify Equation button
         self.mod_eq_button = QPushButton("Modify Equation")
         self.mod_eq_button.clicked.connect(self.open_equation_editor)
-        layout.addWidget(self.mod_eq_button)
+        button_layout.addWidget(self.mod_eq_button)
 
         # New Equation button
-        self.new_eq_button = QPushButton("New Equation")
-        self.new_eq_button.clicked.connect(self.open_new_equation)
-        layout.addWidget(self.new_eq_button)
+        new_eq_button = QPushButton("New Equation")
+        new_eq_button.clicked.connect(self.open_new_equation)
+        button_layout.addWidget(new_eq_button)
 
-        # Matplotlib Figure and Canvas
-        self.axs=[None]
-        self.figure, self.axs[0] = plt.subplots(1, 1, figsize=(5, 5))
-        self.figure.subplots_adjust(top=0.96, bottom=0.08, left=0.03, right=0.975, hspace=0.18, wspace=0.08)
-        self.canvas = FigureCanvas(self.figure)
-        figure_layout.addWidget(self.canvas)
-
-        # Create a VisPy canvas (GPU-rendered)
-        self.SceneCanvas = scene.SceneCanvas(keys='interactive', bgcolor='white')
-        figure_layout.addWidget(self.SceneCanvas.native)
-        layout.addLayout(figure_layout)
-
-        # Create a 3D view
-        self.view = self.SceneCanvas.central_widget.add_view()
-        self.view.camera = 'turntable'  # Interactive 3D rotation
-        self.view.camera.scale_factor = 600
-
-        # toolbar
-        self.toolbar = NavigationToolbar(self.canvas, self)
-        layout.addWidget(self.toolbar)
+        layout.addLayout(button_layout)
 
         self.populate_drop_down()
         
@@ -178,7 +192,6 @@ class veget_indices_GPU(QWidget):
         
         self.mesh = visuals.Mesh(vertices=np.column_stack((X_flat, Y_flat, Z_norm)),faces=faces , shading='smooth') 
         self.view.add(self.mesh)
-        self.plot_3D_axes()
         self.view.camera.center = (result.shape[1]//2, -result.shape[0]//2, 0)
         self.canvas.draw()
 
@@ -203,11 +216,17 @@ class veget_indices_GPU(QWidget):
 
     def on_mouse_click(self, event):
         """ Dynamically move the camera to focus on a clicked point. """
-        if event.button == 3:  # Left-click only
-            pos = event.pos  # Get mouse position
-            picked = self.view.scene.node_transform(self.mesh).map(pos)  # Map to scene coords
-            if picked is not None:
-                self.view.camera.center = (picked[:3][0],-picked[:3][1],0 ) # Move camera to the clicked point
+        if hasattr(self, "mesh") and self.mesh is not None:
+            if event.button == 3:  # Left-click only
+                pos = event.pos  # Get mouse position
+                x,y = self.view.scene.node_transform(self.mesh).map(pos)  # Map to scene coords
+                if x is not None and y is not None:
+                    [shapey, shapex, _]  = self.data_img.shape
+                    width, height = self.SceneCanvas.size
+                    x = int(x/width*shapex)     # Convert to image coordinates
+                    y = int(y/height*shapey)    # Convert to image coordinates
+
+                    self.view.camera.center = (x,-y,0 ) # Move camera to the clicked point
 
 
     def load_file(self, file_path, wavelenght, data_img):
@@ -216,6 +235,8 @@ class veget_indices_GPU(QWidget):
         self.file_path = file_path
         self.wavelengths = wavelenght
         self.data_img = data_img
+
+        self.plot_3D_axes()
 
         # Clear the axes
         if hasattr(self, "mesh") and self.mesh is not None:

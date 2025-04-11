@@ -10,7 +10,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 
 from utiles import mean_spectre_of_cluster, are_intersecting, custom_clear, closest_id
 
-from CustomElement import CustomCanvas
+from CustomElement import CustomCanvas,CommentButton
 
 sp.settings.envi_support_nonlowercase_params = True
 
@@ -37,6 +37,7 @@ class MainWindow_draw_cluster(QWidget):
         self.point_plots = []   # Store plotted points Object for easy removal
         self.line_plots = []    # Store plotted lines Object for easy removal
         self.wavelengths = None    # liste de toutes les longueurs d'ondes enregistré par la cam
+        self.commentaire = None
 
 
 
@@ -44,7 +45,7 @@ class MainWindow_draw_cluster(QWidget):
 
         self.import_button = QPushButton("Importer un fichier")
         layout = QVBoxLayout()
-
+        toolbar_layout = QHBoxLayout()
         # Label d'information
         self.label = QLabel("Click to add points, right-click to remove the last point, press enter to confirm the polygon, and delete to remove everything.")
         self.label.setAlignment(Qt.AlignCenter)  # Center the text
@@ -62,7 +63,16 @@ class MainWindow_draw_cluster(QWidget):
 
         # toolbar
         self.toolbar = NavigationToolbar(self.canvas, self)
-        layout.addWidget(self.toolbar)
+        toolbar_layout.addWidget(self.toolbar)
+
+        # button to add comment
+        button_com = CommentButton(self)
+        toolbar_layout.addWidget(button_com)
+
+        layout.addLayout(toolbar_layout)
+
+
+
         layout.addWidget(self.canvas)
 
         self.canvas.draw()
@@ -171,7 +181,6 @@ class MainWindow_draw_cluster(QWidget):
 
     def delete(self, what):
         # Delete the overlay and/or points and/or lines from the image shown
-        print("Deleting")
         self.button_confirm.clicked.disconnect()
         self.button_confirm.clicked.connect(self.confirm_to_connect)
         
@@ -179,12 +188,10 @@ class MainWindow_draw_cluster(QWidget):
             if self.overlay is not None:
                 # self.overlay.remove()
                 self.overlay = None
-                print("   - overlay deleted")
         
         if what == "all" or what == "points":
             n = len(self.points)
             if n != 0:
-                print("   - points deleted")
                 for i in range(n):
                     self.point_plots[i].remove()
                 self.point_plots = []
@@ -193,7 +200,6 @@ class MainWindow_draw_cluster(QWidget):
         if what == "all" or what == "lines":
             n = len(self.line_plots)
             if n != 0:
-                print("   - lines deleted")
                 for i in range(n):
                     self.line_plots[i].remove()
                 self.line_plots = []
@@ -218,8 +224,6 @@ class MainWindow_draw_cluster(QWidget):
             # print(f"RGB : {R}, {G}, {B}")
             # print(f"RGB : {wavelenght[R]}, {wavelenght[G]}, {wavelenght[B]}")
             RGB_img = self.data_img[:,:,(R,G,B)]
-
-
             if RGB_img.max()*2 < 1:
                 try:
                     RGB_img = 2*RGB_img.view(np.ndarray)

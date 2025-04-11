@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QLineEdit
 )
 
-from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider
+from CustomElement import CustomCanvas,CustomToolbar,CustomWidgetRangeSlider,CommentButton
 from utiles import mean_spectre_of_cluster, custom_clear, closest_id
 
 from PySide6.QtCore import Signal, Qt
@@ -41,6 +41,7 @@ class KMeansApp(QWidget):
 
 
     def variable_init(self):
+        self.commentaire = None
         self.param_has_changed_skm = True           # variables booleene pour signaler lorsqu'une modification a été faite aux parametre du clustering
         self.param_has_changed_spectra = True       #   
         self.file_path = None   # chemin d'acces du fichier HDR
@@ -52,6 +53,8 @@ class KMeansApp(QWidget):
         self.WL_MIN = None        # la valeur de la plus petite longueur d'onde enregistré par la caméra (constante)
         self.wl_min_cursor = None       # l'inice de longueur d'onde min du slider
         self.wl_max_cursor = None       # l'inice de longueur d'onde max du slider
+        if hasattr(self, "toolbar") and hasattr(self.toolbar, "number_of_overlay_ploted"):
+            self.toolbar.number_of_overlay_ploted = 0
 
   
 
@@ -59,6 +62,7 @@ class KMeansApp(QWidget):
     def init_ui(self):
 
         layout = QVBoxLayout()
+        toolbar_layout = QHBoxLayout()
 
         # Matplotlib Figure
         self.figure, self.axs = plt.subplots(1, 2, figsize=(15, 10))
@@ -66,10 +70,19 @@ class KMeansApp(QWidget):
         self.axs[0].set_title("hyperspectral image")
         self.axs[1].set_title("spectrum")
         self.canvas = CustomCanvas(self.figure, self.axs)
+
+
+        # toolbar
         self.toolbar = CustomToolbar(self.canvas, self)
-        layout.addWidget(self.toolbar)
-        layout.addWidget(self.canvas)
+        toolbar_layout.addWidget(self.toolbar)
         
+        # button to add comment
+        button_com = CommentButton(self)
+        toolbar_layout.addWidget(button_com)
+
+        layout.addLayout(toolbar_layout)
+
+        layout.addWidget(self.canvas)
         # Buttons 
         btn_layout = QHBoxLayout()
         self.btn_show_image = QPushButton("Afficher Image")
@@ -135,7 +148,6 @@ class KMeansApp(QWidget):
     def apply_first_kmean(self):
         if self.data_img is not None:
             if self.first_cluster_map is None: # on ne calcule les clusters que si les parametre ont changé ou si il n'existe pas deja de cluster map
-                t1 = time()
                 reshaped_data = self.data_img.reshape(-1, self.data_img.shape[-1]) # Reshape to (n_lines*n_colones, n_bands)
                 kmeans = MiniBatchKMeans(n_clusters=2, n_init='auto', max_iter=10, random_state=42)
                 labels = kmeans.fit_predict(reshaped_data[:,::10]) # uses a fraction of the bands for clustering to speed up the process
@@ -175,7 +187,7 @@ class KMeansApp(QWidget):
                 mask = self.second_cluster_map == i
                 mask = np.ma.masked_where(~mask, mask)
                 color = cmap(norm(i))
-                overlay = self.axs[0].imshow(mask, colorizer=color, alpha = 0.9,label=f"cluster{i}")
+                overlay = self.axs[0].imshow(mask, alpha =1,label=f"cluster{i}")
                 overlay.set_cmap(plt.cm.colors.ListedColormap([color]))
             # self.axs[0].imshow(self.second_cluster_map, cmap='nipy_spectral')
             self.axs[0].axis('off')
