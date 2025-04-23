@@ -231,6 +231,8 @@ class MainWindow_draw_cluster(QWidget):
                     pass
             self.axs[0].imshow(RGB_img)
         else:
+            RGB_img = self.data_img[:,:,(0,1,2)]
+            self.axs[0].imshow(RGB_img)
             print("RGB values not supported")
         self.canvas.draw()
 

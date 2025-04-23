@@ -1,22 +1,18 @@
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QLabel, QSlider, QHBoxLayout, QComboBox, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from PySide6.QtGui import QFont
-from utiles import calcule_true_rgb_opti, calcule_true_gray_opti
+from utiles import calcule_true_rgb_opti
+
 
 import os
-import spectral as sp
-import time
-from reportlab.lib.pagesizes import A4
 
 from qtpy.QtCore import Qt
 
 from CustomElement import CommentButton
 
-from time import time
 
 # Désactiver le mode interactif de matplotlib
 plt.ioff()
@@ -182,3 +178,62 @@ class Image_Mode_Slider(QWidget):
         self.update_image()
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from PySide6.QtCore import Signal
+import sys
+from PySide6.QtWidgets import QMainWindow, QApplication
+import spectral as sp
+
+
+class MyWindow(QMainWindow):
+    # Define a signal that emits new width & height
+    
+    resized = Signal(int, int)
+    def __init__(self):
+        super().__init__()
+        # Create an instance of CustomWidget and pass the resize signal
+        self.widget = Image_Mode_Slider()
+        self.file_path = "D:/MAXIME/cours/4eme_annee/Projet_M1/feuille_250624_ref/feuille_250624_ref.hdr"
+        # self.file_path ="D:/MAXIME/cours/4eme_annee/Projet_M1/wetransfer_data_m1_nantes_2025-03-25_1524/Data_M1_Nantes/VNIR(400-1000nm)/E2_Adm_On_J0_Pl1_F1_2.bil.hdr"
+        img = sp.open_image(self.file_path)
+        self.data_img = img.load()
+        if 'wavelength' in img.metadata:
+            self.wavelengths = img.metadata['wavelength']
+        elif "Wavelength" in img.metadata:
+            self.wavelengths = img.metadata['Wavelength']
+        self.wavelengths = [float(i) for i in self.wavelengths]
+        self.setCentralWidget(self.widget)
+
+        self.resized.connect(lambda : self.widget.load_file(self.file_path, self.wavelengths, self.data_img))
+
+
+
+    def resizeEvent(self, event):
+        """ Emits the signal when the window is resized """
+        new_width = self.width()
+        new_height = self.height()
+        self.resized.emit(new_width, new_height) 
+        super().resizeEvent(event)
+
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MyWindow()
+    window.show()
+    sys.exit(app.exec_())

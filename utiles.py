@@ -334,14 +334,14 @@ def resolv_equation(equation,data_img,wavelengths):
     
     if len(found_wavelengths)==0:
         print("no wl found in the equation text")
-        return -2
+        return None
     
     for wl in found_wavelengths:
         wl = int(wl)
         band_index = closest_id(wl,wavelengths,accuracy=2)
         if band_index is None:
             print("wl value not found")
-            return -1
+            return None
         data = data_img[:,:,band_index]
         local_dict[f'R{int(wl)}'] = np.squeeze(data)
     # Evaluate the equation safely

@@ -157,8 +157,9 @@ class veget_indices_GPU(QWidget):
         
         
         result = resolv_equation(equation,self.data_img,self.wavelengths)
-        self.axs[0].imshow(result,cmap='nipy_spectral')
-        self.plot_3D(result)
+        if result:
+            self.axs[0].imshow(result,cmap='nipy_spectral')
+            self.plot_3D(result)
         return 
     
 
@@ -258,6 +259,8 @@ class veget_indices_GPU(QWidget):
                     pass
             self.axs[0].imshow(RGB_img)
         else:
+            RGB_img = self.data_img[:,:,(0,1,2)]
+            self.axs[0].imshow(RGB_img)
             print("RGB values not supported")
         self.canvas.draw()
 

@@ -1,49 +1,24 @@
-from PySide6.QtWidgets import QMainWindow, QApplication, QWidget, QVBoxLayout, QLabel
-from PySide6.QtCore import Signal
-import sys
+import spectral as sp
+from utiles import closest_id
+sp.settings.WX_GL_DEPTH_SIZE = 16
 
-class CustomWidget(QWidget):
-    def __init__(self, resize_signal, parent=None):
-        super().__init__(parent)
+img = sp.open_image("D:/MAXIME/cours/4eme_annee/Projet_M1/feuille_250624_ref/feuille_250624_ref.hdr")
 
-        # Connect the resize signal from QMainWindow
-        resize_signal.connect(self.handle_resize)
+if 'wavelength' in img.metadata:
+    wavelength = img.metadata['wavelength']
+elif "Wavelength" in img.metadata:
+    wavelength = img.metadata['Wavelength']
+wavelength = [float(i) for i in wavelength]
 
-        # Create a label to show the window size
-        self.label = QLabel("Window Size: Unknown", self)
 
-        # Layout to organize widgets
-        layout = QVBoxLayout()
-        layout.addWidget(self.label)
-        self.setLayout(layout)
+R = closest_id(700, wavelength)
+G = closest_id(550, wavelength)       
+B = closest_id(450, wavelength)
 
-    def handle_resize(self, width, height):
-        """ Update the label when the window resizes """
-        self.label.setText(f"Window Size: {width}x{height}")
-        print(f"CustomWidget detected resize: {width}x{height}")
 
-class MyWindow(QMainWindow):
-    # Define a signal that emits new width & height
-    resized = Signal(int, int)
 
-    def __init__(self):
-        super().__init__()
 
-        # Create an instance of CustomWidget and pass the resize signal
-        self.widget = CustomWidget(self.resized)
-        self.setCentralWidget(self.widget)
 
-        self.setWindowTitle("Pass Resize Signal Example")
-        self.resize(800, 600)  # Initial size
 
-    def resizeEvent(self, event):
-        """ Emits the signal when the window is resized """
-        width, height = event.size().width(), event.size().height()
-        self.resized.emit(width, height)  # Emit signal with new size
-        super().resizeEvent(event)
 
-# Run the application
-app = QApplication(sys.argv)
-window = MyWindow()
-window.show()
-sys.exit(app.exec_())
+sp.view_cube(img, bands=[R, G, B])
