@@ -157,7 +157,7 @@ class veget_indices_GPU(QWidget):
         
         
         result = resolv_equation(equation,self.data_img,self.wavelengths)
-        if result:
+        if result is not None:
             self.axs[0].imshow(result,cmap='nipy_spectral')
             self.plot_3D(result)
         return 

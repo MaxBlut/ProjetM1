@@ -316,7 +316,7 @@ def resolv_equation(equation,data_img,wavelengths):
     local_dict = {}
 
     if "where" in equation:
-        eq_list = equation.split("where", 1)
+        eq_list = equation.split("where")
 
         for i in range(1, len(eq_list)): # we start at 1 to not include the first equation
             sub_eq = eq_list[i]
@@ -331,11 +331,11 @@ def resolv_equation(equation,data_img,wavelengths):
         
     # Extract wavelength values from the equation
     found_wavelengths = re.findall(r'R(\d+)', equation)
-    
+    """
     if len(found_wavelengths)==0:
         print("no wl found in the equation text")
         return None
-    
+    """
     for wl in found_wavelengths:
         wl = int(wl)
         band_index = closest_id(wl,wavelengths,accuracy=2)
@@ -344,10 +344,14 @@ def resolv_equation(equation,data_img,wavelengths):
             return None
         data = data_img[:,:,band_index]
         local_dict[f'R{int(wl)}'] = np.squeeze(data)
-    # Evaluate the equation safely
+    
+
+    local_dict["sin"] = np.sin
+    local_dict["cos"] = np.cos
     local_dict['sqrt'] = sqrt
     local_dict['abs'] = abs
     local_dict['log'] = log10
+    # Evaluate the equation safely
     try:
         result = eval(equation, {"__builtins__": {}} , local_dict) 
     except Exception as e:

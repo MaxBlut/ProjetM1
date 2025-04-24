@@ -196,7 +196,7 @@ class KMeansApp(QWidget):
 
     def display_spectra(self):
 
-        if self.data_img is not None and self.second_cluster_map is not None and self.param_has_changed_spectra:
+        if self.data_img is not None and self.second_cluster_map is not None :
             custom_clear(self.axs[1])     # Clear the right graph
             self.axs[1].set_title("spectrum")
             cmap = plt.get_cmap("nipy_spectral")
@@ -206,7 +206,6 @@ class KMeansApp(QWidget):
                 self.axs[1].plot(self.croped_wavelength, avg_spectrum, color=cmap(norm(i)), label=f"Cluster {i}")
             # Create the legend **AFTER** plotting all lines
             self.canvas.draw("legend")
-            self.param_has_changed_spectra = False
 
 
     def on_click(self, event):
@@ -244,6 +243,7 @@ class KMeansApp(QWidget):
         self.wl_min_cursor =self.wavelengths[0]
         self.wl_max_cursor =self.wavelengths[-1]
         self.slider_widget.setWavelenghts(self.wavelengths)
+        custom_clear(self.axs[1])
         self.show_image()
 
 
@@ -257,7 +257,6 @@ class KMeansApp(QWidget):
     def show_image(self):
         # Clear the axes
         custom_clear(self.axs[0])
-        custom_clear(self.axs[1])
         if self.data_img is not None:
             WL_MIN = self.wavelengths[0]
             # Display the image

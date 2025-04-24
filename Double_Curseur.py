@@ -64,10 +64,6 @@ class Double_Curseur(QWidget):
         self.canvas.draw()
 
 
-    def update_file(self, path):
-        self.file_path = path
-        self.fichier_selec.setText(os.path.basename(path))  # Afficher le nom du fichier dans l'UI
-
 
     def update_image(self):
         self.Img_ax.clear()
