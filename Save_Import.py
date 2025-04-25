@@ -111,7 +111,6 @@ class Save_import(QWidget):
                 print(cropped_img.size)
                 print((h, w))
                 cropped_img.save(buf, format='png')
-                cropped_img.save("scenecanvas.png", format='png')
                 y_pos += save_img(buf, pdf_canvas, y_pos)  # Enregistrer l'image dans le PDF
 
             for line in commentaires[i].split("\n"):
